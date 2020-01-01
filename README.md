@@ -1,4 +1,4 @@
-#Promql CLI
+# Promql CLI
 ```
 Query prometheus from the command line for quick analysis
 
