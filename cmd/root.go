@@ -101,7 +101,7 @@ func instantTable(result model.Value) {
 			data[i] = string(v.Metric[key])
 		}
 		data = append(data, v.Value.String())
-		data = append(data, v.Timestamp.String())
+		data = append(data, v.Timestamp.Time().Format(time.RFC3339))
 		row := strings.Join(data, "\t")
 		fmt.Fprintln(w, row)
 	}
