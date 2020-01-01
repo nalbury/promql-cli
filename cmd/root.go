@@ -41,8 +41,6 @@ var (
 	cfgFile   string
 	start     string
 	end       string
-	step      string
-	output    string
 	noHeaders bool
 )
 
@@ -149,7 +147,7 @@ func instantCsv(result model.Value) {
 	w.WriteAll(rows)
 }
 
-func instantQuery(host, queryString string) {
+func instantQuery(host, queryString, output string) {
 	client, err := api.NewClient(api.Config{
 		Address: host,
 	})
@@ -272,7 +270,7 @@ func getRange(step, start, end string) v1.Range {
 	return r
 }
 
-func rangeQuery(host, queryString string, r v1.Range) {
+func rangeQuery(host, queryString, output string, r v1.Range) {
 	client, err := api.NewClient(api.Config{
 		Address: host,
 	})
@@ -314,11 +312,13 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
 		host := viper.GetString("host")
+		step := viper.GetString("step")
+		output := viper.GetString("output")
 		if start != "" {
 			r := getRange(step, start, end)
-			rangeQuery(host, query, r)
+			rangeQuery(host, query, output, r)
 		} else {
-			instantQuery(host, query)
+			instantQuery(host, query, output)
 		}
 	},
 }
@@ -338,10 +338,12 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location (default $HOME/.promql-cli.yaml)")
 	rootCmd.PersistentFlags().String("host", "http://0.0.0.0:9090", "prometheus server url")
 	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
-	rootCmd.PersistentFlags().StringVar(&step, "step", "1m", "Results step duration (h,m,s e.g. 1m)")
+	rootCmd.PersistentFlags().String("step", "1m", "Results step duration (h,m,s e.g. 1m)")
+	viper.BindPFlag("step", rootCmd.PersistentFlags().Lookup("step"))
 	rootCmd.PersistentFlags().StringVar(&start, "start", "", "Query range start duration (either as a lookback in h,m,s e.g. 1m, or as an RFC3339 formatted date string). Required for range queries")
 	rootCmd.PersistentFlags().StringVar(&end, "end", "now", "Query range end (either 'now', or an RFC3339 formatted date string)")
-	rootCmd.PersistentFlags().StringVar(&output, "output", "", "Override the default output formats (graph for range queries, and table for instant queries). Options: json,csv")
+	rootCmd.PersistentFlags().String("output", "", "Override the default output format (graph for range queries, and table for instant queries). Options: json,csv")
+	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
 	rootCmd.PersistentFlags().BoolVar(&noHeaders, "no-headers", false, "Disable table headers for instant queries")
 
 }
