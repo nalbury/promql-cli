@@ -17,9 +17,12 @@ package cmd
 
 import (
 	"context"
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -36,31 +39,117 @@ import (
 
 var (
 	cfgFile   string
-	host      string
 	start     string
 	end       string
 	step      string
+	output    string
 	noHeaders bool
 )
+
+func getLabels(result model.Value) []model.LabelName {
+	// first we need to create our list of columns
+	// We use a map to createa uniq set of keys without searching the existing list everytime
+	// An empty struct is used as the value to minimize the mem of the map
+	labelKeys := make(map[model.LabelName]struct{})
+	if result.Type() == model.ValVector {
+		values := result.(model.Vector)
+		for _, v := range values {
+			for key, _ := range v.Metric {
+				labelKeys[key] = struct{}{}
+			}
+		}
+	} else if result.Type() == model.ValMatrix {
+		values := result.(model.Matrix)
+		for _, v := range values {
+			for key, _ := range v.Metric {
+				labelKeys[key] = struct{}{}
+			}
+		}
+	} else {
+		fmt.Println("Can't determine result type")
+	}
+	// Once we have our map, we can create a slice of label names
+	var labelKeySlice []model.LabelName
+	for key := range labelKeys {
+		labelKeySlice = append(labelKeySlice, key)
+	}
+
+	//Finally we sort the slice to ensure consistency between each query
+	sort.Slice(labelKeySlice, func(i, j int) bool {
+		return string(labelKeySlice[i]) < string(labelKeySlice[j])
+	})
+	return labelKeySlice
+}
 
 func instantTable(result model.Value) {
 	const padding = 4
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
+	labelKeySlice := getLabels(result)
 	if !noHeaders {
-		titleAttributes := []string{"METRIC", "VALUE"}
-		titleRow := strings.Join(titleAttributes, "\t")
+		var titles []string
+		for _, k := range labelKeySlice {
+			titles = append(titles, strings.ToUpper(string(k)))
+		}
+
+		titles = append(titles, "VALUE")
+		titles = append(titles, "TIMESTAMP")
+		titleRow := strings.Join(titles, "\t")
 		fmt.Fprintln(w, titleRow)
 	}
 	vectorVal := result.(model.Vector)
 	for _, v := range vectorVal {
-		columns := []string{v.Metric.String(), v.Value.String()}
-		row := strings.Join(columns, "\t")
+		data := make([]string, len(labelKeySlice))
+		for i, key := range labelKeySlice {
+			data[i] = string(v.Metric[key])
+		}
+		data = append(data, v.Value.String())
+		data = append(data, v.Timestamp.String())
+		row := strings.Join(data, "\t")
 		fmt.Fprintln(w, row)
 	}
 	w.Flush()
 }
 
-func instantQuery(queryString string) {
+func instantJson(result model.Value) {
+	vectorVal := result.(model.Vector)
+	if o, err := json.Marshal(vectorVal); err == nil {
+		fmt.Println(string(o))
+	}
+}
+
+func instantCsv(result model.Value) {
+	vectorVal := result.(model.Vector)
+	w := csv.NewWriter(os.Stdout)
+
+	var rows [][]string
+	labelKeySlice := getLabels(result)
+
+	// And a slice of label names as a string for our title row
+	if !noHeaders {
+		var titleRow []string
+		for _, k := range labelKeySlice {
+			titleRow = append(titleRow, string(k))
+		}
+
+		titleRow = append(titleRow, "value")
+		titleRow = append(titleRow, "timestamp")
+
+		rows = append(rows, titleRow)
+	}
+
+	for _, v := range vectorVal {
+		row := make([]string, len(labelKeySlice))
+		for i, key := range labelKeySlice {
+			row[i] = string(v.Metric[key])
+		}
+		row = append(row, v.Value.String())
+		row = append(row, v.Timestamp.Time().Format(time.RFC3339))
+		rows = append(rows, row)
+	}
+	w.WriteAll(rows)
+}
+
+func instantQuery(host, queryString string) {
 	client, err := api.NewClient(api.Config{
 		Address: host,
 	})
@@ -82,9 +171,15 @@ func instantQuery(queryString string) {
 	}
 
 	if result.Type() == model.ValVector {
-		instantTable(result)
+		if output == "json" {
+			instantJson(result)
+		} else if output == "csv" {
+			instantCsv(result)
+		} else {
+			instantTable(result)
+		}
 	} else {
-		fmt.Printf("Did not receive and instant vector")
+		fmt.Printf("Did not receive an instant vector")
 	}
 }
 
@@ -101,6 +196,43 @@ func rangeGraph(result model.Value) {
 		fmt.Println(graph)
 		fmt.Println("")
 	}
+}
+
+func rangeJson(result model.Value) {
+	matrixVal := result.(model.Matrix)
+	if o, err := json.Marshal(matrixVal); err == nil {
+		fmt.Println(string(o))
+	}
+}
+
+func rangeCsv(result model.Value) {
+	w := csv.NewWriter(os.Stdout)
+	var rows [][]string
+	labelKeySlice := getLabels(result)
+	if !noHeaders {
+		var titleRow []string
+		for _, k := range labelKeySlice {
+			titleRow = append(titleRow, string(k))
+		}
+
+		titleRow = append(titleRow, "value")
+		titleRow = append(titleRow, "timestamp")
+
+		rows = append(rows, titleRow)
+	}
+	matrixVal := result.(model.Matrix)
+	for _, m := range matrixVal {
+		for _, v := range m.Values {
+			row := make([]string, len(labelKeySlice))
+			for i, key := range labelKeySlice {
+				row[i] = string(m.Metric[key])
+			}
+			row = append(row, v.Value.String())
+			row = append(row, v.Timestamp.Time().Format(time.RFC3339))
+			rows = append(rows, row)
+		}
+	}
+	w.WriteAll(rows)
 }
 
 func getRange(step, start, end string) v1.Range {
@@ -140,7 +272,7 @@ func getRange(step, start, end string) v1.Range {
 	return r
 }
 
-func rangeQuery(queryString string, r v1.Range) {
+func rangeQuery(host, queryString string, r v1.Range) {
 	client, err := api.NewClient(api.Config{
 		Address: host,
 	})
@@ -160,7 +292,17 @@ func rangeQuery(queryString string, r v1.Range) {
 	if len(warnings) > 0 {
 		fmt.Printf("Warnings: %v\n", warnings)
 	}
-	rangeGraph(result)
+	if result.Type() == model.ValMatrix {
+		if output == "json" {
+			rangeJson(result)
+		} else if output == "csv" {
+			rangeCsv(result)
+		} else {
+			rangeGraph(result)
+		}
+	} else {
+		fmt.Printf("Did not receive an instant vector")
+	}
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -171,11 +313,12 @@ var rootCmd = &cobra.Command{
 	Long:    `Query prometheus from the command line for quick analysis`,
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
+		host := viper.GetString("host")
 		if start != "" {
 			r := getRange(step, start, end)
-			rangeQuery(query, r)
+			rangeQuery(host, query, r)
 		} else {
-			instantQuery(query)
+			instantQuery(host, query)
 		}
 	},
 }
@@ -192,11 +335,13 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "$HOME/.promql-cli.yaml", "config file")
-	rootCmd.PersistentFlags().StringVar(&host, "host", "http://0.0.0.0:9090", "prometheus server url")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location (default $HOME/.promql-cli.yaml)")
+	rootCmd.PersistentFlags().String("host", "http://0.0.0.0:9090", "prometheus server url")
+	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
 	rootCmd.PersistentFlags().StringVar(&step, "step", "1m", "Results step duration (h,m,s e.g. 1m)")
 	rootCmd.PersistentFlags().StringVar(&start, "start", "", "Query range start duration (either as a lookback in h,m,s e.g. 1m, or as an RFC3339 formatted date string). Required for range queries")
 	rootCmd.PersistentFlags().StringVar(&end, "end", "now", "Query range end (either 'now', or an RFC3339 formatted date string)")
+	rootCmd.PersistentFlags().StringVar(&output, "output", "", "Override the default output formats (graph for range queries, and table for instant queries). Options: json,csv")
 	rootCmd.PersistentFlags().BoolVar(&noHeaders, "no-headers", false, "Disable table headers for instant queries")
 
 }

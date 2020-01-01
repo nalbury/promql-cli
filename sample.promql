@@ -1,1 +1,1 @@
-sum(rate(container_cpu_usage_seconds_total{namespace="geospatial", cluster="production", pod=~"backend-.*"}[5m])) by (pod)
+sum(rate(container_cpu_usage_seconds_total{namespace="geospatial", cluster="production", pod=~"sidekiq-.*"}[5m])) by (pod)
