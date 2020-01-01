@@ -37,3 +37,26 @@ host: https://my.prometheus.server:9090
 output: json
 step: 5m
 ```
+
+#### Example Instant Vector
+```
+➜  promql-cli git:(master) promql "sum(rate(apiserver_request_count[1m])) by (instance)"                                                                            
+Using config file: /Users/nalbury/.promql-cli.yaml
+INSTANCE              VALUE                 TIMESTAMP
+123.456.789.123:443    14.433333333333325    1577915363.03
+```
+
+#### Example Range Vector
+```
+➜  promql-cli git:(master) promql "sum(rate(apiserver_request_count[1m])) by (instance)" --start 1h                                                                 
+Using config file: /Users/nalbury/.promql-cli.yaml
+
+Metric: {instance="123.456.789.123:443"}
+ 18.70 ┤╭╮        ╭╮        ╭╮        ╭╮        ╭╮        ╭╮         
+ 17.48 ┤││        ││        ││        ││        ││        ││         
+ 16.27 ┤││        ││        ││        ││        ││        ││         
+ 15.05 ┼╯│╭──╮╭───╯╰────────╯╰────────╯╰────────╯╰────────╯╰──────── 
+ 13.83 ┤ ╰╯  ╰╯                                                      
+
+```
+
