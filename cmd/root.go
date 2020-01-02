@@ -305,7 +305,7 @@ func rangeQuery(host, queryString, output string, r v1.Range) {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Version: "0.1.0",
+	Version: "v0.1.0",
 	Use:     "promql [query_string]",
 	Short:   "Query prometheus from the command line",
 	Long:    `Query prometheus from the command line for quick analysis`,
