@@ -19,7 +19,7 @@ Flags:
 
 ## Installation
 ```
-curl -o /usr/local/bin/promql https://promql-cli.s3.amazonaws.com/latest/promql && chmod +x /usr/local/bin/promql
+curl -o /usr/local/bin/promql https://promql-cli.s3.amazonaws.com/latest/macos/promql && chmod +x /usr/local/bin/promql
 ```
 
 Specific versions can be installed by replacing `latest` in the URL above with any version tag (e.g. v0.1.0).
