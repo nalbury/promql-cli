@@ -17,6 +17,13 @@ Flags:
       --version         version for promql
 ```
 
+## Installation
+```
+curl -o /usr/local/bin/promql https://promql-cli.s3.amazonaws.com/latest/macos/promql && chmod +x /usr/local/bin/promql
+```
+
+Specific versions can be installed by replacing `latest` in the URL above with any version tag (e.g. v0.1.0).
+
 ## Usage
 ```
 promql --host "http://my.prometheus.server:9090" "sum(up) by (job)"
@@ -59,4 +66,3 @@ Metric: {instance="123.456.789.123:443"}
  13.83 ┤ ╰╯  ╰╯                                                      
 
 ```
-
