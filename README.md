@@ -1,9 +1,14 @@
 # Promql CLI
 ```
-Query prometheus from the command line for quick analysis
+Query prometheus from the command line for quick analysis.
 
 Usage:
   promql [query_string] [flags]
+  promql [command]
+
+Available Commands:
+  help        Help about any command
+  metrics     Get a list of all prometheus metric names
 
 Flags:
       --config string   config file location (default $HOME/.promql-cli.yaml)
@@ -11,10 +16,12 @@ Flags:
   -h, --help            help for promql
       --host string     prometheus server url (default "http://0.0.0.0:9090")
       --no-headers      Disable table headers for instant queries
-      --output string   Override the default output format (graph for range queries, and table for instant queries). Options: json,csv
+      --output string   Override the default output format (graph for range queries, table for instant queries and metric names). Options: json,csv
       --start string    Query range start duration (either as a lookback in h,m,s e.g. 1m, or as an RFC3339 formatted date string). Required for range queries
       --step string     Results step duration (h,m,s e.g. 1m) (default "1m")
       --version         version for promql
+
+Use "promql [command] --help" for more information about a command.
 ```
 
 ## Installation
