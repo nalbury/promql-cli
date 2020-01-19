@@ -308,7 +308,8 @@ var rootCmd = &cobra.Command{
 	Version: "v0.1.0",
 	Use:     "promql [query_string]",
 	Short:   "Query prometheus from the command line",
-	Long:    `Query prometheus from the command line for quick analysis`,
+	Long:    `Query prometheus from the command line for quick analysis.`,
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
 		host := viper.GetString("host")
