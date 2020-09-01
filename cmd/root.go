@@ -1,5 +1,5 @@
 /*
-Copyright © 2019 Nick Albury nickalbury@gmail.com
+Copyright © 2020 Nick Albury nickalbury@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,26 +17,23 @@ package cmd
 
 import (
 	"context"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
+	"log"
 	"os"
-	"sort"
-	"strings"
-	"text/tabwriter"
 	"time"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 
-	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"github.com/guptarohit/asciigraph"
+	"github.com/nalbury/promql-cli/pkg/promql"
+	"github.com/nalbury/promql-cli/pkg/writer"
 )
 
+// cmd line args
 var (
 	cfgFile   string
 	start     string
@@ -44,262 +41,102 @@ var (
 	noHeaders bool
 )
 
-func getLabels(result model.Value) []model.LabelName {
-	// first we need to create our list of columns
-	// We use a map to createa uniq set of keys without searching the existing list everytime
-	// An empty struct is used as the value to minimize the mem of the map
-	labelKeys := make(map[model.LabelName]struct{})
-	if result.Type() == model.ValVector {
-		values := result.(model.Vector)
-		for _, v := range values {
-			for key, _ := range v.Metric {
-				labelKeys[key] = struct{}{}
-			}
-		}
-	} else if result.Type() == model.ValMatrix {
-		values := result.(model.Matrix)
-		for _, v := range values {
-			for key, _ := range v.Metric {
-				labelKeys[key] = struct{}{}
-			}
-		}
-	} else {
-		fmt.Println("Can't determine result type")
-	}
-	// Once we have our map, we can create a slice of label names
-	var labelKeySlice []model.LabelName
-	for key := range labelKeys {
-		labelKeySlice = append(labelKeySlice, key)
-	}
-
-	//Finally we sort the slice to ensure consistency between each query
-	sort.Slice(labelKeySlice, func(i, j int) bool {
-		return string(labelKeySlice[i]) < string(labelKeySlice[j])
-	})
-	return labelKeySlice
-}
-
-func instantTable(result model.Value) {
-	const padding = 4
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
-	labelKeySlice := getLabels(result)
-	if !noHeaders {
-		var titles []string
-		for _, k := range labelKeySlice {
-			titles = append(titles, strings.ToUpper(string(k)))
-		}
-
-		titles = append(titles, "VALUE")
-		titles = append(titles, "TIMESTAMP")
-		titleRow := strings.Join(titles, "\t")
-		fmt.Fprintln(w, titleRow)
-	}
-	vectorVal := result.(model.Vector)
-	for _, v := range vectorVal {
-		data := make([]string, len(labelKeySlice))
-		for i, key := range labelKeySlice {
-			data[i] = string(v.Metric[key])
-		}
-		data = append(data, v.Value.String())
-		data = append(data, v.Timestamp.Time().Format(time.RFC3339))
-		row := strings.Join(data, "\t")
-		fmt.Fprintln(w, row)
-	}
-	w.Flush()
-}
-
-func instantJson(result model.Value) {
-	vectorVal := result.(model.Vector)
-	if o, err := json.Marshal(vectorVal); err == nil {
-		fmt.Println(string(o))
-	}
-}
-
-func instantCsv(result model.Value) {
-	vectorVal := result.(model.Vector)
-	w := csv.NewWriter(os.Stdout)
-
-	var rows [][]string
-	labelKeySlice := getLabels(result)
-
-	// And a slice of label names as a string for our title row
-	if !noHeaders {
-		var titleRow []string
-		for _, k := range labelKeySlice {
-			titleRow = append(titleRow, string(k))
-		}
-
-		titleRow = append(titleRow, "value")
-		titleRow = append(titleRow, "timestamp")
-
-		rows = append(rows, titleRow)
-	}
-
-	for _, v := range vectorVal {
-		row := make([]string, len(labelKeySlice))
-		for i, key := range labelKeySlice {
-			row[i] = string(v.Metric[key])
-		}
-		row = append(row, v.Value.String())
-		row = append(row, v.Timestamp.Time().Format(time.RFC3339))
-		rows = append(rows, row)
-	}
-	w.WriteAll(rows)
-}
+// global error logger
+var errlog *log.Logger = log.New(os.Stderr, "", 0)
 
 func instantQuery(host, queryString, output string) {
-	client, err := api.NewClient(api.Config{
-		Address: host,
-	})
+	client, err := promql.CreateClient(host)
 	if err != nil {
 		fmt.Printf("Error creating client: %v\n", err)
 		os.Exit(1)
 	}
 
-	v1api := v1.NewAPI(client)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	result, warnings, err := v1api.Query(ctx, queryString, time.Now())
+
+	result, warnings, err := client.Query(ctx, queryString, time.Now())
 	if err != nil {
-		fmt.Printf("Error querying Prometheus: %v\n", err)
-		os.Exit(1)
+		errlog.Fatalf("Error querying Prometheus: %v\n", err)
 	}
 	if len(warnings) > 0 {
-		fmt.Printf("Warnings: %v\n", warnings)
+		errlog.Printf("Warnings: %v\n", warnings)
 	}
 
-	if result.Type() == model.ValVector {
-		if output == "json" {
-			instantJson(result)
-		} else if output == "csv" {
-			instantCsv(result)
-		} else {
-			instantTable(result)
+	// if result is the expected type, Write it out in the
+	// desired output format
+	if result, ok := result.(model.Vector); ok {
+		r := writer.InstantResult{result}
+		if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
+			errlog.Println(err)
 		}
 	} else {
-		fmt.Printf("Did not receive an instant vector")
+		errlog.Println("Did not receive an instant vector")
 	}
 }
 
-func rangeGraph(result model.Value) {
-	matrixVal := result.(model.Matrix)
-	for _, m := range matrixVal {
-		var data []float64
-		for _, v := range m.Values {
-			data = append(data, float64(v.Value))
-		}
-		fmt.Println("")
-		fmt.Println("Metric:", m.Metric.String())
-		graph := asciigraph.Plot(data)
-		fmt.Println(graph)
-		fmt.Println("")
+func getRange(step, start, end string) (r v1.Range, err error) {
+	if s, err := time.Parse(time.RFC3339, start); err == nil {
+		r.Start = s
+	} else if l, err := time.ParseDuration(start); err == nil {
+		r.Start = time.Now().Add(-l)
+	} else {
+		err = fmt.Errorf("No valid range start provided: %e", err)
+		return r, err
 	}
-}
 
-func rangeJson(result model.Value) {
-	matrixVal := result.(model.Matrix)
-	if o, err := json.Marshal(matrixVal); err == nil {
-		fmt.Println(string(o))
-	}
-}
-
-func rangeCsv(result model.Value) {
-	w := csv.NewWriter(os.Stdout)
-	var rows [][]string
-	labelKeySlice := getLabels(result)
-	if !noHeaders {
-		var titleRow []string
-		for _, k := range labelKeySlice {
-			titleRow = append(titleRow, string(k))
-		}
-
-		titleRow = append(titleRow, "value")
-		titleRow = append(titleRow, "timestamp")
-
-		rows = append(rows, titleRow)
-	}
-	matrixVal := result.(model.Matrix)
-	for _, m := range matrixVal {
-		for _, v := range m.Values {
-			row := make([]string, len(labelKeySlice))
-			for i, key := range labelKeySlice {
-				row[i] = string(m.Metric[key])
-			}
-			row = append(row, v.Value.String())
-			row = append(row, v.Timestamp.Time().Format(time.RFC3339))
-			rows = append(rows, row)
-		}
-	}
-	w.WriteAll(rows)
-}
-
-func getRange(step, start, end string) v1.Range {
-	var rangeStart time.Time
-	var rangeEnd time.Time
-	var rangeStep time.Duration
+	r.End = time.Now()
+	r.Step = time.Minute
 
 	if step != "" {
-		if s, err := time.ParseDuration(step); err == nil {
-			rangeStep = s
-		} else {
-			fmt.Println(err)
+		s, err := time.ParseDuration(step)
+		if err != nil {
+			errlog.Fatalln(err)
 		}
-	} else {
-		rangeStep = time.Minute
+		r.Step = s
 	}
 
-	if s, err := time.Parse(time.RFC3339, start); err == nil {
-		rangeStart = s
-	} else if l, err := time.ParseDuration(start); err == nil {
-		rangeStart = time.Now().Add(-l)
-	} else {
-		fmt.Printf("No valid range start provided: %e", err)
+	if end != "now" {
+		e, err := time.Parse(time.RFC3339, end)
+		if err != nil {
+			err = fmt.Errorf("Unable to parse range end time: %w", err)
+			return r, err
+		}
+		r.End = e
 	}
 
-	if e, err := time.Parse(time.RFC3339, end); err == nil {
-		rangeEnd = e
-	} else {
-		rangeEnd = time.Now()
-	}
-
-	r := v1.Range{
-		Start: rangeStart,
-		End:   rangeEnd,
-		Step:  rangeStep,
-	}
-	return r
+	return r, err
 }
 
 func rangeQuery(host, queryString, output string, r v1.Range) {
-	client, err := api.NewClient(api.Config{
-		Address: host,
-	})
+	// Create client
+	client, err := promql.CreateClient(host)
 	if err != nil {
-		fmt.Printf("Error creating client: %v\n", err)
-		os.Exit(1)
+		errlog.Fatalf("Error creating client: %v\n", err)
 	}
 
-	v1api := v1.NewAPI(client)
+	// create context with a timeout,
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	result, warnings, err := v1api.QueryRange(ctx, queryString, r)
+
+	// execute query
+	result, warnings, err := client.QueryRange(ctx, queryString, r)
 	if err != nil {
-		fmt.Printf("Error querying Prometheus: %v\n", err)
-		os.Exit(1)
+		errlog.Fatalf("Error querying Prometheus: %v\n", err)
 	}
+	// print warnings to stderr and continue
 	if len(warnings) > 0 {
-		fmt.Printf("Warnings: %v\n", warnings)
+		errlog.Printf("Warnings: %v\n", warnings)
 	}
-	if result.Type() == model.ValMatrix {
-		if output == "json" {
-			rangeJson(result)
-		} else if output == "csv" {
-			rangeCsv(result)
-		} else {
-			rangeGraph(result)
+
+	// if result is the expected type, Write it out in the
+	// desired output format
+	if result, ok := result.(model.Matrix); ok {
+		r := writer.RangeResult{result}
+		if err := writer.WriteRange(&r, output, noHeaders); err != nil {
+			errlog.Println(err)
 		}
 	} else {
-		fmt.Printf("Did not receive an instant vector")
+		errlog.Println("Did not receive a range result")
 	}
 }
 
@@ -315,8 +152,14 @@ var rootCmd = &cobra.Command{
 		host := viper.GetString("host")
 		step := viper.GetString("step")
 		output := viper.GetString("output")
+		// If we have a start time for the query, assume we're doing a range query
 		if start != "" {
-			r := getRange(step, start, end)
+			// Parse the time range from the cmd line/config file options
+			r, err := getRange(step, start, end)
+			if err != nil {
+				errlog.Fatalf("Error parsing time range for range query: %w", err)
+			}
+			// Execute our range query
 			rangeQuery(host, query, output, r)
 		} else {
 			instantQuery(host, query, output)
@@ -371,6 +214,8 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println(err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			fmt.Printf("Could not read config file: %w\n", err)
+		}
 	}
 }
