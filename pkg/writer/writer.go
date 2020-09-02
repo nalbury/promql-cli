@@ -57,6 +57,7 @@ type RangeResult struct {
 	model.Matrix
 }
 
+// Graph returns an ascii graph using https://github.com/guptarohit/asciigraph
 func (r *RangeResult) Graph() (bytes.Buffer, error) {
 	var buf bytes.Buffer
 
@@ -64,23 +65,34 @@ func (r *RangeResult) Graph() (bytes.Buffer, error) {
 	if err != nil {
 		return buf, err
 	}
-	termHeightOpt := asciigraph.Height(dim.Height / 3)
+	termHeightOpt := asciigraph.Height(dim.Height / 5)
 	termWidthOpt := asciigraph.Width(dim.Width - 8)
 
 	for _, m := range r.Matrix {
-		var data []float64
+		var (
+			data  []float64
+			start string
+			end   string
+		)
 
 		for _, v := range m.Values {
 			data = append(data, float64(v.Value))
 		}
 
+		start = m.Values[0].Timestamp.Time().Format(time.Stamp)
+		end = m.Values[(len(m.Values) - 1)].Timestamp.Time().Format(time.Stamp)
+
+		timerange := start + " -> " + end
+
 		graph := asciigraph.Plot(data, termHeightOpt, termWidthOpt)
-		fmt.Fprintf(&buf, "\nMetric: %s\n", m.Metric.String())
-		fmt.Fprintf(&buf, "%v\n", graph)
+		fmt.Fprintf(&buf, "\n TIME_RANGE: %s\n", timerange)
+		fmt.Fprintf(&buf, " METRIC:     %s \n", m.Metric.String())
+		fmt.Fprintf(&buf, "%s\n", graph)
 	}
 	return buf, nil
 }
 
+// Json returns the response from a range query as json
 func (r *RangeResult) Json() (bytes.Buffer, error) {
 	var buf bytes.Buffer
 	o, err := json.Marshal(r.Matrix)
@@ -91,6 +103,7 @@ func (r *RangeResult) Json() (bytes.Buffer, error) {
 	return buf, nil
 }
 
+// Csv returns the response from a range query as a csv
 func (r *RangeResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 	var (
 		buf  bytes.Buffer
@@ -128,29 +141,31 @@ func (r *RangeResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 	return buf, nil
 }
 
+// WriteRange writes out the results of the query to an
+// output buffer and prints it to stdout
 func WriteRange(r RangeWriter, format string, noHeaders bool) error {
 	var (
-		o   bytes.Buffer
+		buf bytes.Buffer
 		err error
 	)
 	switch format {
 	case "json":
-		o, err = r.Json()
+		buf, err = r.Json()
 		if err != nil {
 			return err
 		}
 	case "csv":
-		o, err = r.Csv(noHeaders)
+		buf, err = r.Csv(noHeaders)
 		if err != nil {
 			return err
 		}
 	default:
-		o, err = r.Graph()
+		buf, err = r.Graph()
 		if err != nil {
 			return err
 		}
 	}
-	fmt.Println(o.String())
+	fmt.Println(buf.String())
 	return nil
 }
 
@@ -160,6 +175,7 @@ type InstantResult struct {
 	model.Vector
 }
 
+// Table returns the response from an instant query as a tab separated table
 func (r *InstantResult) Table(noHeaders bool) (bytes.Buffer, error) {
 	var buf bytes.Buffer
 	const padding = 4
@@ -193,6 +209,7 @@ func (r *InstantResult) Table(noHeaders bool) (bytes.Buffer, error) {
 	return buf, nil
 }
 
+// Json returns the response from an instant query as json
 func (r *InstantResult) Json() (bytes.Buffer, error) {
 	var buf bytes.Buffer
 	o, err := json.Marshal(r.Vector)
@@ -203,6 +220,7 @@ func (r *InstantResult) Json() (bytes.Buffer, error) {
 	return buf, nil
 }
 
+// Csv returns the repsonse from an instant query as a csv
 func (r *InstantResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 	var (
 		buf  bytes.Buffer
@@ -238,28 +256,30 @@ func (r *InstantResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 	return buf, nil
 }
 
+// WriteInstant writes out the results of the query to an
+// output buffer and prints it to stdout
 func WriteInstant(i InstantWriter, format string, noHeaders bool) error {
 	var (
-		o   bytes.Buffer
+		buf bytes.Buffer
 		err error
 	)
 	switch format {
 	case "json":
-		o, err = i.Json()
+		buf, err = i.Json()
 		if err != nil {
 			return err
 		}
 	case "csv":
-		o, err = i.Csv(noHeaders)
+		buf, err = i.Csv(noHeaders)
 		if err != nil {
 			return err
 		}
 	default:
-		o, err = i.Table(noHeaders)
+		buf, err = i.Table(noHeaders)
 		if err != nil {
 			return err
 		}
 	}
-	fmt.Println(o.String())
+	fmt.Println(buf.String())
 	return nil
 }

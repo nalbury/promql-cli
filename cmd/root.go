@@ -80,7 +80,7 @@ func getRange(step, start, end string) (r v1.Range, err error) {
 	} else if l, err := time.ParseDuration(start); err == nil {
 		r.Start = time.Now().Add(-l)
 	} else {
-		err = fmt.Errorf("No valid range start provided: %e", err)
+		err = fmt.Errorf("Unable to parse range start start time: %w", err)
 		return r, err
 	}
 
@@ -157,7 +157,7 @@ var rootCmd = &cobra.Command{
 			// Parse the time range from the cmd line/config file options
 			r, err := getRange(step, start, end)
 			if err != nil {
-				errlog.Fatalf("Error parsing time range for range query: %w", err)
+				errlog.Fatalln(err)
 			}
 			// Execute our range query
 			rangeQuery(host, query, output, r)
@@ -184,8 +184,8 @@ func init() {
 	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
 	rootCmd.PersistentFlags().String("step", "1m", "Results step duration (h,m,s e.g. 1m)")
 	viper.BindPFlag("step", rootCmd.PersistentFlags().Lookup("step"))
-	rootCmd.PersistentFlags().StringVar(&start, "start", "", "Query range start duration (either as a lookback in h,m,s e.g. 1m, or as an RFC3339 formatted date string). Required for range queries")
-	rootCmd.PersistentFlags().StringVar(&end, "end", "now", "Query range end (either 'now', or an RFC3339 formatted date string)")
+	rootCmd.PersistentFlags().StringVar(&start, "start", "", "Query range start duration (either as a lookback in h,m,s e.g. 1m, or as an ISO 8601 formatted date string). Required for range queries")
+	rootCmd.PersistentFlags().StringVar(&end, "end", "now", "Query range end (either 'now', or an ISO 8601 formatted date string)")
 	rootCmd.PersistentFlags().String("output", "", "Override the default output format (graph for range queries, table for instant queries and metric names). Options: json,csv")
 	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
 	rootCmd.PersistentFlags().BoolVar(&noHeaders, "no-headers", false, "Disable table headers for instant queries")

@@ -22,10 +22,12 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 )
 
+// Client is our prometheus v1 API interface
 type Client interface {
 	v1.API
 }
 
+// CreateClient creates a Client interface for the provided hostname
 func CreateClient(host string) (Client, error) {
 	a, err := api.NewClient(api.Config{
 		Address: host,

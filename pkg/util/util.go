@@ -31,15 +31,19 @@ func UniqLabels(result model.Value) (labels []model.LabelName, err error) {
 		err = fmt.Errorf("Unable to parse metric labels: unknown query result type: %T", r)
 		return labels, err
 	}
+
 	for key := range labelKeys {
 		labels = append(labels, key)
 	}
+
 	sort.Slice(labels, func(i, j int) bool {
 		return string(labels[i]) < string(labels[j])
 	})
 	return labels, err
 }
 
+// TermDimsensions stores the width and height of the current terminal window
+// Used when setting the ascii graph size for range queries
 type TermDimensions struct {
 	Height int
 	Width  int
