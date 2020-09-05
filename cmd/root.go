@@ -44,19 +44,19 @@ var (
 // global error logger
 var errlog *log.Logger = log.New(os.Stderr, "", 0)
 
-func instantQuery(host, queryString, output string) {
+// instantQuery performs an instant query and writes the results to stdout
+func instantQuery(host, queryString, output string, timeout time.Duration) {
 	client, err := promql.CreateClient(host)
 	if err != nil {
-		fmt.Printf("Error creating client: %v\n", err)
-		os.Exit(1)
+		errlog.Fatalf("Error creating client, %v\n", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	result, warnings, err := client.Query(ctx, queryString, time.Now())
 	if err != nil {
-		errlog.Fatalf("Error querying Prometheus: %v\n", err)
+		errlog.Fatalf("Error querying Prometheus, %v\n", err)
 	}
 	if len(warnings) > 0 {
 		errlog.Printf("Warnings: %v\n", warnings)
@@ -74,31 +74,36 @@ func instantQuery(host, queryString, output string) {
 	}
 }
 
+// getRange creates a prometheus range from the provided start, end, and step options
 func getRange(step, start, end string) (r v1.Range, err error) {
+	// At minimum we need a start time so we attempt to parse that first
 	if s, err := time.Parse(time.RFC3339, start); err == nil {
 		r.Start = s
 	} else if l, err := time.ParseDuration(start); err == nil {
 		r.Start = time.Now().Add(-l)
 	} else {
-		err = fmt.Errorf("Unable to parse range start start time: %w", err)
+		err = fmt.Errorf("Unable to parse range start time, %v", err)
 		return r, err
 	}
 
+	// Set up defaults for the range end and step values
 	r.End = time.Now()
 	r.Step = time.Minute
 
+	// If the user provided a step value, parse it as a time.Duration and override the default
 	if step != "" {
-		s, err := time.ParseDuration(step)
+		r.Step, err = time.ParseDuration(step)
 		if err != nil {
-			errlog.Fatalln(err)
+			err = fmt.Errorf("Unable to parse step duration, %v", err)
+			return r, err
 		}
-		r.Step = s
 	}
 
+	// If the user provided an end value, parse it to a time struct and override the default
 	if end != "now" {
 		e, err := time.Parse(time.RFC3339, end)
 		if err != nil {
-			err = fmt.Errorf("Unable to parse range end time: %w", err)
+			err = fmt.Errorf("Unable to parse range end time, %v", err)
 			return r, err
 		}
 		r.End = e
@@ -107,21 +112,22 @@ func getRange(step, start, end string) (r v1.Range, err error) {
 	return r, err
 }
 
-func rangeQuery(host, queryString, output string, r v1.Range) {
+// rangeQuery performs a range query and writes the results to stdout
+func rangeQuery(host, queryString, output string, timeout time.Duration, r v1.Range) {
 	// Create client
 	client, err := promql.CreateClient(host)
 	if err != nil {
-		errlog.Fatalf("Error creating client: %v\n", err)
+		errlog.Fatalf("Error creating client, %v\n", err)
 	}
 
 	// create context with a timeout,
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	// execute query
 	result, warnings, err := client.QueryRange(ctx, queryString, r)
 	if err != nil {
-		errlog.Fatalf("Error querying Prometheus: %v\n", err)
+		errlog.Fatalf("Error querying Prometheus, %v\n", err)
 	}
 	// print warnings to stderr and continue
 	if len(warnings) > 0 {
@@ -152,6 +158,10 @@ var rootCmd = &cobra.Command{
 		host := viper.GetString("host")
 		step := viper.GetString("step")
 		output := viper.GetString("output")
+		timeout := viper.GetInt("timeout")
+
+		// Convert our timeout flag into a time.Duration
+		t := time.Duration(int64(timeout)) * time.Second
 		// If we have a start time for the query, assume we're doing a range query
 		if start != "" {
 			// Parse the time range from the cmd line/config file options
@@ -160,9 +170,9 @@ var rootCmd = &cobra.Command{
 				errlog.Fatalln(err)
 			}
 			// Execute our range query
-			rangeQuery(host, query, output, r)
+			rangeQuery(host, query, output, t, r)
 		} else {
-			instantQuery(host, query, output)
+			instantQuery(host, query, output, t)
 		}
 	},
 }
@@ -171,8 +181,7 @@ var rootCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		errlog.Fatalln(err)
 	}
 }
 
@@ -189,6 +198,8 @@ func init() {
 	rootCmd.PersistentFlags().String("output", "", "Override the default output format (graph for range queries, table for instant queries and metric names). Options: json,csv")
 	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
 	rootCmd.PersistentFlags().BoolVar(&noHeaders, "no-headers", false, "Disable table headers for instant queries")
+	rootCmd.PersistentFlags().String("timeout", "10", "The timeout in seconds for all queries")
+	viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout"))
 
 }
 
@@ -201,8 +212,7 @@ func initConfig() {
 		// Find home directory.
 		home, err := homedir.Dir()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			errlog.Fatalln(err)
 		}
 
 		// Search config in home directory with name ".promql-cli" (without extension).
@@ -215,7 +225,7 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			fmt.Printf("Could not read config file: %w\n", err)
+			errlog.Printf("Could not read config file: %v\n", err)
 		}
 	}
 }
