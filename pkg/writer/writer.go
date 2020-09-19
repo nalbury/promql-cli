@@ -41,7 +41,7 @@ type Writer interface {
 // Used specifically for writing the results of range queries
 type RangeWriter interface {
 	Writer
-	Graph() (bytes.Buffer, error)
+	Graph(dim util.TermDimensions) (bytes.Buffer, error)
 }
 
 // InstantWriter extends the Writer interface by adding a Table method
@@ -58,13 +58,9 @@ type RangeResult struct {
 }
 
 // Graph returns an ascii graph using https://github.com/guptarohit/asciigraph
-func (r *RangeResult) Graph() (bytes.Buffer, error) {
+func (r *RangeResult) Graph(dim util.TermDimensions) (bytes.Buffer, error) {
 	var buf bytes.Buffer
 
-	dim, err := util.TerminalSize()
-	if err != nil {
-		return buf, err
-	}
 	termHeightOpt := asciigraph.Height(dim.Height / 5)
 	termWidthOpt := asciigraph.Width(dim.Width - 8)
 
@@ -160,7 +156,11 @@ func WriteRange(r RangeWriter, format string, noHeaders bool) error {
 			return err
 		}
 	default:
-		buf, err = r.Graph()
+		dim, err := util.TerminalSize()
+		if err != nil {
+			return err
+		}
+		buf, err = r.Graph(dim)
 		if err != nil {
 			return err
 		}
