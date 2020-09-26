@@ -17,84 +17,38 @@ package cmd
 
 import (
 	"context"
-	"encoding/csv"
-	"encoding/json"
-	"fmt"
-	"os"
-	"strings"
-	"text/tabwriter"
 	"time"
 
-	"github.com/prometheus/client_golang/api"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/model"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/nalbury/promql-cli/pkg/promql"
+	"github.com/nalbury/promql-cli/pkg/writer"
 )
 
-func metricsTable(result model.LabelValues) {
-	const padding = 4
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
-	if !noHeaders {
-		titleRow := "METRICS"
-		fmt.Fprintln(w, titleRow)
-	}
-	for _, l := range result {
-		row := strings.ToLower(string(l))
-		fmt.Fprintln(w, row)
-	}
-	w.Flush()
-}
-
-func metricsJson(result model.LabelValues) {
-	if o, err := json.Marshal(result); err == nil {
-		fmt.Println(string(o))
-	}
-}
-
-func metricsCsv(result model.LabelValues) {
-	w := csv.NewWriter(os.Stdout)
-	var rows [][]string
-	if !noHeaders {
-		titleRow := []string{"metrics"}
-		rows = append(rows, titleRow)
-	}
-	for _, l := range result {
-		row := []string{string(l)}
-		rows = append(rows, row)
-	}
-	w.WriteAll(rows)
-}
-
-func metricsQuery(host, output string) {
-	client, err := api.NewClient(api.Config{
-		Address: host,
-	})
+func metricsQuery(host, output string, timeout time.Duration) {
+	client, err := promql.CreateClient(host)
 	if err != nil {
-		fmt.Printf("Error creating client: %v\n", err)
-		os.Exit(1)
+		errlog.Fatalf("Error creating client, %v\n", err)
 	}
 
-	v1api := v1.NewAPI(client)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	result, warnings, err := v1api.LabelValues(ctx, "__name__")
+
+	result, warnings, err := client.LabelValues(ctx, "__name__")
 	if err != nil {
-		fmt.Printf("Error querying Prometheus: %v\n", err)
-		os.Exit(1)
+		errlog.Fatalf("Error querying Prometheus, %v\n", err)
 	}
 	if len(warnings) > 0 {
-		fmt.Printf("Warnings: %v\n", warnings)
+		errlog.Printf("Warnings: %v\n", warnings)
 	}
 
-	if output == "json" {
-		metricsJson(result)
-	} else if output == "csv" {
-		metricsCsv(result)
-	} else {
-		metricsTable(result)
+	// if result is the expected type, Write it out in the
+	// desired output format
+	r := writer.MetricsResult{result}
+	if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
+		errlog.Println(err)
 	}
-
 }
 
 // metricsCmd represents the metrics command
@@ -105,7 +59,10 @@ var metricsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		host := viper.GetString("host")
 		output := viper.GetString("output")
-		metricsQuery(host, output)
+		timeout := viper.GetInt("timeout")
+		// Convert our timeout flag into a time.Duration
+		t := time.Duration(int64(timeout)) * time.Second
+		metricsQuery(host, output, t)
 	},
 }
 
