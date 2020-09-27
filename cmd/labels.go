@@ -59,7 +59,7 @@ func labelsQuery(host, query, output string, timeout time.Duration) {
 
 // labelsCmd represents the labels command
 var labelsCmd = &cobra.Command{
-	Use:   "labels",
+	Use:   "labels [query_string]",
 	Short: "Get a list of all labels for a given query",
 	Long:  `Get a list of all labels for a given query`,
 	Args:  cobra.ExactArgs(1),

@@ -36,7 +36,11 @@ func TestRangeGraph(t *testing.T) {
 				},
 			},
 
-			Expected: fmt.Sprintf("\n TIME_RANGE: %s -> %s\n METRIC:     my_metric \n 1.00 ┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── \n", model.TimeFromUnix(now.Unix()-60).Time().Format(time.Stamp), now.Time().Format(time.Stamp)),
+			Expected: fmt.Sprintf(
+				"\n##################################################\n# TIME_RANGE: %s -> %s #\n# METRIC: my_metric                              #\n##################################################\n 1.00 ┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── \n",
+				model.TimeFromUnix(now.Unix()-60).Time().Format(time.Stamp),
+				now.Time().Format(time.Stamp),
+			),
 		},
 	}
 	for i, c := range cases {
