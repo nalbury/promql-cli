@@ -105,6 +105,9 @@ INSTANCE                VALUE                 TIMESTAMP
 
 ```
 
+For more advanced graphing of prometheus data in your terminal, I highly recommend [grafterm](https://github.com/slok/grafterm).
+
+
 ### Metrics and Labels
 
 In addition to querying prometheus data, you can also query for metrics and labels available in the dataset.
