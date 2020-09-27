@@ -71,7 +71,7 @@ INSTANCE                VALUE                 TIMESTAMP
 
 #### Example Range Vector
 ```
-➜  ~ promql 'sum(rate(apiserver_request_total{cluster="production",clusterID="green"}[5m])) by (job)' --start 24h
+➜  ~ promql 'sum(rate(apiserver_request_total[5m])) by (job)' --start 24h
 
 ##################################################
 # TIME_RANGE: Sep 26 09:37:35 -> Sep 27 09:37:35 #
