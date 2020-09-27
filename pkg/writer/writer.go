@@ -66,9 +66,10 @@ func (r *RangeResult) Graph(dim util.TermDimensions) (bytes.Buffer, error) {
 
 	for _, m := range r.Matrix {
 		var (
-			data  []float64
-			start string
-			end   string
+			data          []float64
+			start         string
+			end           string
+			border_length int
 		)
 
 		for _, v := range m.Values {
@@ -80,9 +81,37 @@ func (r *RangeResult) Graph(dim util.TermDimensions) (bytes.Buffer, error) {
 
 		timerange := start + " -> " + end
 
+		// Generate the graph boxed to our terminal size
 		graph := asciigraph.Plot(data, termHeightOpt, termWidthOpt)
-		fmt.Fprintf(&buf, "\n TIME_RANGE: %s\n", timerange)
-		fmt.Fprintf(&buf, " METRIC:     %s \n", m.Metric.String())
+
+		// Create our header for each graph
+		// # TIME_RANGE: Sep 27 09:08:09 -> Sep 27 09:18:09
+		time_range_header := "# TIME_RANGE: " + timerange
+		// # METRIC: {instance="10.202.38.101:6443"}
+		metric_header := "# METRIC: " + m.Metric.String()
+		// Truncate the metric header to the term width - 2
+		// This ensures that long metric headers don't overflow onto a new line
+		if len(metric_header) > (dim.Width - 2) {
+			metric_header = metric_header[:(dim.Width - 2)]
+		}
+		// Determine the longest header string and set the border (######) to it's length + 2
+		// Add spacing to the shortest header
+		if len(time_range_header) > len(metric_header) {
+			border_length = len(time_range_header) + 2
+			s := len(time_range_header) - len(metric_header)
+			metric_header = metric_header + strings.Repeat(" ", s)
+		} else {
+			border_length = len(metric_header) + 2
+			s := len(metric_header) - len(time_range_header)
+			time_range_header = time_range_header + strings.Repeat(" ", s)
+		}
+		// Create the border of '#'
+		border := strings.Repeat("#", border_length)
+		// Write out
+		fmt.Fprintf(&buf, "\n%s\n", border)
+		fmt.Fprintf(&buf, "%s #\n", time_range_header)
+		fmt.Fprintf(&buf, "%s #\n", metric_header)
+		fmt.Fprintf(&buf, "%s\n", border)
 		fmt.Fprintf(&buf, "%s\n", graph)
 	}
 	return buf, nil
