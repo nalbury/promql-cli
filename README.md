@@ -45,8 +45,15 @@ promql --host "http://my.prometheus.server:9090" 'sum(up) by (job)'
 This will return an instant vector of the metric `up` summed by `job`
 
 To see this metric over time (returns a range vector) simple add the desired lookback using the start flag:
+
 ```
 promql --host "http://my.prometheus.server:9090" "sum(up) by (job)" --start 1h
+```
+
+You can also write your query in a file and run it with promql (useful for larger queries):
+
+```
+promql --host "http://my.prometheus.server:9090" "$(cat ./my-query.promql)" --start 1h
 ```
 
 By default instant vectors will output as a tab separated table, and range vectors will print a single [ascii graph](https://github.com/guptarohit/asciigraph) per series. All query results can be returned as either JSON or CSV formated data using the `--output` flag (e.g. `--output csv`. This can be used to export prometheus data into other data analysis frameworks (pandas, google sheets, etc.).
