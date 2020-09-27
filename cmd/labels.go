@@ -22,11 +22,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/prometheus/common/model"
+
 	"github.com/nalbury/promql-cli/pkg/promql"
 	"github.com/nalbury/promql-cli/pkg/writer"
 )
 
-func metricsQuery(host, output string, timeout time.Duration) {
+func labelsQuery(host, query, output string, timeout time.Duration) {
 	client, err := promql.CreateClient(host)
 	if err != nil {
 		errlog.Fatalf("Error creating client, %v\n", err)
@@ -35,7 +37,7 @@ func metricsQuery(host, output string, timeout time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	result, warnings, err := client.LabelValues(ctx, "__name__")
+	result, warnings, err := client.Query(ctx, query, time.Now())
 	if err != nil {
 		errlog.Fatalf("Error querying Prometheus, %v\n", err)
 	}
@@ -45,27 +47,34 @@ func metricsQuery(host, output string, timeout time.Duration) {
 
 	// if result is the expected type, Write it out in the
 	// desired output format
-	r := writer.MetricsResult{result}
-	if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
-		errlog.Println(err)
+	if result, ok := result.(model.Vector); ok {
+		r := writer.LabelsResult{result}
+		if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
+			errlog.Println(err)
+		}
+	} else {
+		errlog.Println("Did not receive an instant vector")
 	}
 }
 
-// metricsCmd represents the metrics command
-var metricsCmd = &cobra.Command{
-	Use:   "metrics",
-	Short: "Get a list of all prometheus metric names",
-	Long:  `Get a list of all prometheus metric names`,
+// labelsCmd represents the labels command
+var labelsCmd = &cobra.Command{
+	Use:   "labels",
+	Short: "Get a list of all labels for a given query",
+	Long:  `Get a list of all labels for a given query`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		query := args[0]
 		host := viper.GetString("host")
 		output := viper.GetString("output")
 		timeout := viper.GetInt("timeout")
+
 		// Convert our timeout flag into a time.Duration
 		t := time.Duration(int64(timeout)) * time.Second
-		metricsQuery(host, output, t)
+		labelsQuery(host, query, output, t)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(metricsCmd)
+	rootCmd.AddCommand(labelsCmd)
 }

@@ -99,6 +99,30 @@ func TestJson(t *testing.T) {
 				now.String(),
 			),
 		},
+		{
+			Result: &MetricsResult{
+				model.LabelValues{
+					"my_metric",
+					"my_other_metric",
+				},
+			},
+			Expected: "[\"my_metric\",\"my_other_metric\"]",
+		},
+		{
+			Result: &LabelsResult{
+				model.Vector{
+					{
+						Metric: map[model.LabelName]model.LabelValue{
+							"__name__": "my_metric",
+							"label":    "value",
+						},
+						Value:     1.0,
+						Timestamp: now,
+					},
+				},
+			},
+			Expected: "[\"__name__\",\"label\"]",
+		},
 	}
 	for i, c := range cases {
 		buf, err := c.Result.Json()
@@ -156,6 +180,30 @@ func TestCsv(t *testing.T) {
 				now.Time().Format(time.RFC3339),
 			),
 		},
+		{
+			Result: &MetricsResult{
+				model.LabelValues{
+					"my_metric",
+					"my_other_metric",
+				},
+			},
+			Expected: "metrics\nmy_metric\nmy_other_metric\n",
+		},
+		{
+			Result: &LabelsResult{
+				model.Vector{
+					{
+						Metric: map[model.LabelName]model.LabelValue{
+							"__name__": "my_metric",
+							"label":    "value",
+						},
+						Value:     1.0,
+						Timestamp: now,
+					},
+				},
+			},
+			Expected: "labels\n__name__\nlabel\n",
+		},
 	}
 	for i, c := range cases {
 		buf, err := c.Result.Csv(false)
@@ -167,11 +215,11 @@ func TestCsv(t *testing.T) {
 func TestTable(t *testing.T) {
 	now := model.Now()
 	cases := []struct {
-		Result   InstantResult
+		Result   InstantWriter
 		Expected string
 	}{
 		{
-			Result: InstantResult{
+			Result: &InstantResult{
 				model.Vector{
 					{
 						Metric: map[model.LabelName]model.LabelValue{
@@ -186,6 +234,30 @@ func TestTable(t *testing.T) {
 				"__NAME__     VALUE    TIMESTAMP\nmy_metric    1        %s\n",
 				now.Time().Format(time.RFC3339),
 			),
+		},
+		{
+			Result: &MetricsResult{
+				model.LabelValues{
+					"my_metric",
+					"my_other_metric",
+				},
+			},
+			Expected: "METRICS\nmy_metric\nmy_other_metric\n",
+		},
+		{
+			Result: &LabelsResult{
+				model.Vector{
+					{
+						Metric: map[model.LabelName]model.LabelValue{
+							"__name__": "my_metric",
+							"label":    "value",
+						},
+						Value:     1.0,
+						Timestamp: now,
+					},
+				},
+			},
+			Expected: "LABELS\n__name__\nlabel\n",
 		},
 	}
 	for i, c := range cases {
