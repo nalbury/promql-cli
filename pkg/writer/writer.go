@@ -310,6 +310,72 @@ func (r *MetricsResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 	return buf, nil
 }
 
+// LabelsResult is the result of an instant query
+// It's really the same as an InstantResult with different methods for parsing
+// the unique labels present in a query result.
+type LabelsResult struct {
+	model.Vector
+}
+
+// Table returns the labels from an instant query as a single column table
+func (r *LabelsResult) Table(noHeaders bool) (bytes.Buffer, error) {
+	var buf bytes.Buffer
+	const padding = 4
+	w := tabwriter.NewWriter(&buf, 0, 0, padding, ' ', 0)
+	labels, err := util.UniqLabels(r.Vector)
+	if err != nil {
+		return buf, err
+	}
+	if !noHeaders {
+		titleRow := "LABELS"
+		fmt.Fprintln(w, titleRow)
+	}
+	for _, l := range labels {
+		row := strings.ToLower(string(l))
+		fmt.Fprintln(w, row)
+	}
+	w.Flush()
+	return buf, nil
+}
+
+// Json returns the labels from an instant query as json
+func (r *LabelsResult) Json() (bytes.Buffer, error) {
+	var buf bytes.Buffer
+	labels, err := util.UniqLabels(r.Vector)
+	if err != nil {
+		return buf, err
+	}
+	o, err := json.Marshal(labels)
+	if err != nil {
+		return buf, err
+	}
+	buf.Write(o)
+	return buf, nil
+}
+
+// Csv returns the labels from an instant query as a single column csv
+func (r *LabelsResult) Csv(noHeaders bool) (bytes.Buffer, error) {
+	var (
+		buf  bytes.Buffer
+		rows [][]string
+	)
+	w := csv.NewWriter(&buf)
+	labels, err := util.UniqLabels(r.Vector)
+	if err != nil {
+		return buf, err
+	}
+	if !noHeaders {
+		titleRow := []string{"labels"}
+		rows = append(rows, titleRow)
+	}
+	for _, l := range labels {
+		row := []string{string(l)}
+		rows = append(rows, row)
+	}
+	w.WriteAll(rows)
+	return buf, nil
+}
+
 // WriteInstant writes out the results of the query to an
 // output buffer and prints it to stdout
 func WriteInstant(i InstantWriter, format string, noHeaders bool) error {
