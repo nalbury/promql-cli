@@ -302,7 +302,7 @@ func (r *MetricsResult) Table(noHeaders bool) (bytes.Buffer, error) {
 		fmt.Fprintln(w, titleRow)
 	}
 	for _, l := range r.LabelValues {
-		row := strings.ToLower(string(l))
+		row := string(l)
 		fmt.Fprintln(w, row)
 	}
 	w.Flush()
