@@ -360,7 +360,7 @@ func (r *LabelsResult) Table(noHeaders bool) (bytes.Buffer, error) {
 		fmt.Fprintln(w, titleRow)
 	}
 	for _, l := range labels {
-		row := strings.ToLower(string(l))
+		row := string(l)
 		fmt.Fprintln(w, row)
 	}
 	w.Flush()
