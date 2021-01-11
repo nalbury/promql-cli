@@ -28,11 +28,27 @@ Use "promql [command] --help" for more information about a command.
 ```
 
 ## Installation
+Binaries for macOS and Linux can be found on the [Releases page.](https://github.com/nalbury/promql-cli/releases)
+
+They can also be built from source, you'll need golang 1.13.x or higher installed.
+
+First clone the repo and `cd` into it.
 ```
-curl -o /usr/local/bin/promql https://promql-cli.s3.amazonaws.com/latest/macos/promql && chmod +x /usr/local/bin/promql
+git clone https://github.com/nalbury/promql-cli.git
+cd  promql-cli/
 ```
 
-Specific versions can be installed by replacing `latest` in the URL above with any version tag (e.g. v0.2.0).
+Then either use `make`
+
+```
+GOOS=linux make build
+```
+
+or you can build using `go build`
+
+```
+go build -o promql ./
+```
 
 ## Usage
 
