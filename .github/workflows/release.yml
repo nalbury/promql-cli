@@ -14,14 +14,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
     - name: Create release artifacts
-      run: VERSION=${GITHUB_REF} make release
+      run: VERSION=$(awk -F '/' '{print $3}'<<< "$GITHUB_REF") make release
     - name: Create release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        VERSION=$(awk -F '/' '{print $3}'<<< "$GITHUB_REF")
         for f in ./build/artifacts/*
         do
           [ -f "$f" ] && assets+=(-a "$f")
         done
-        hub release create -m "Release ${GITHUB_REF}" \
-          "${assets[@]}" "${GITHUB_REF}"
+        hub release create -m "Release ${VERSION}" \
+          "${assets[@]}" "${VERSION}"
