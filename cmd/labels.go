@@ -48,7 +48,7 @@ func labelsQuery(host, query, output string, timeout time.Duration) {
 	// if result is the expected type, Write it out in the
 	// desired output format
 	if result, ok := result.(model.Vector); ok {
-		r := writer.LabelsResult{result}
+		r := writer.LabelsResult{Vector: result}
 		if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
 			errlog.Println(err)
 		}

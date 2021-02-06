@@ -33,18 +33,18 @@ func UniqLabels(result model.Value) (labels []model.LabelName, err error) {
 	switch r := result.(type) {
 	case model.Matrix:
 		for _, v := range result.(model.Matrix) {
-			for key, _ := range v.Metric {
+			for key := range v.Metric {
 				labelKeys[key] = struct{}{}
 			}
 		}
 	case model.Vector:
 		for _, v := range result.(model.Vector) {
-			for key, _ := range v.Metric {
+			for key := range v.Metric {
 				labelKeys[key] = struct{}{}
 			}
 		}
 	default:
-		err = fmt.Errorf("Unable to parse metric labels: unknown query result type: %T", r)
+		err = fmt.Errorf("unable to parse metric labels: unknown query result type: %T", r)
 		return labels, err
 	}
 
