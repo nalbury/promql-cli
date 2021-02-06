@@ -1,7 +1,7 @@
 OS ?= darwin ## OS we're building for (e.g. linux)
 ARCH ?= amd64 ## Arch we're building for  (e.g. amd64)
 VERSION ?= master ## Version we're releasing
-INSTALL_PATH ?= /usr/local/bin
+INSTALL_PATH ?= /usr/local/bin ## Install path for make install
 
 GOOS = $(strip $(OS))
 GOARCH = $(strip $(ARCH))
@@ -14,7 +14,7 @@ ARTIFACT_PATH = ./build/artifacts
 export GO_BUILD=GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BUILD_PATH)/promql ./
 export TAR=tar -czvf $(ARTIFACT_PATH)/promql-$(V)-$(GOOS)-$(GOARCH).tar.gz -C $(BUILD_PATH) promql
 
-build: setup ## Build temple binary
+build: setup ## Build promql binary
 		$(GO_BUILD)
 
 setup: ## Setup build/artifact paths.
@@ -44,7 +44,7 @@ help: ## Print Makefile help
 	@echo "Makefile for promql"
 	@echo "#### Examples ####"
 	@echo "Build a linux binary:"
-	@echo "   GOOS=linux make build"
+	@echo "   OS=linux make build"
 	@echo "Build both linux and macOS binaries and create release artifacts:"
 	@echo "   VERSION=v0.2.1 make release"
 	@echo "#### Environment Variables ####"
