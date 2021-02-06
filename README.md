@@ -72,7 +72,7 @@ You can also write your query in a file and run it with promql (useful for large
 promql --host "http://my.prometheus.server:9090" "$(cat ./my-query.promql)" --start 1h
 ```
 
-By default instant vectors will output as a tab separated table, and range vectors will print a single [ascii graph](https://github.com/guptarohit/asciigraph) per series. All query results can be returned as either JSON or CSV formated data using the `--output` flag (e.g. `--output csv`). This can be used to export prometheus data into other data analysis frameworks (pandas, google sheets, etc.).
+By default, instant vectors will output as a tab separated table, and range vectors will print a single [ascii graph](https://github.com/guptarohit/asciigraph) per series. All query results can be returned as either JSON or CSV formatted data using the `--output` flag (e.g. `--output csv`). This can be used to export prometheus data into other data analysis frameworks (pandas, google sheets, etc.).
 
 The values for `host`, `step`, `output` and `timeout` can be set globally in a config file (default location is `$HOME/.promql-cli.yaml`).
 

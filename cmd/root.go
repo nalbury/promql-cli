@@ -23,7 +23,7 @@ import (
 	"os"
 	"time"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -42,7 +42,7 @@ var (
 )
 
 // global error logger
-var errlog *log.Logger = log.New(os.Stderr, "", 0)
+var errlog = log.New(os.Stderr, "", 0)
 
 // instantQuery performs an instant query and writes the results to stdout
 func instantQuery(host, queryString, output string, timeout time.Duration) {
@@ -65,7 +65,7 @@ func instantQuery(host, queryString, output string, timeout time.Duration) {
 	// if result is the expected type, Write it out in the
 	// desired output format
 	if result, ok := result.(model.Vector); ok {
-		r := writer.InstantResult{result}
+		r := writer.InstantResult{Vector: result}
 		if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
 			errlog.Println(err)
 		}
@@ -82,7 +82,7 @@ func getRange(step, start, end string) (r v1.Range, err error) {
 	} else if l, err := time.ParseDuration(start); err == nil {
 		r.Start = time.Now().Add(-l)
 	} else {
-		err = fmt.Errorf("Unable to parse range start time, %v", err)
+		err = fmt.Errorf("unable to parse range start time, %v", err)
 		return r, err
 	}
 
@@ -94,7 +94,7 @@ func getRange(step, start, end string) (r v1.Range, err error) {
 	if step != "" {
 		r.Step, err = time.ParseDuration(step)
 		if err != nil {
-			err = fmt.Errorf("Unable to parse step duration, %v", err)
+			err = fmt.Errorf("unable to parse step duration, %v", err)
 			return r, err
 		}
 	}
@@ -103,7 +103,7 @@ func getRange(step, start, end string) (r v1.Range, err error) {
 	if end != "now" {
 		e, err := time.Parse(time.RFC3339, end)
 		if err != nil {
-			err = fmt.Errorf("Unable to parse range end time, %v", err)
+			err = fmt.Errorf("unable to parse range end time, %v", err)
 			return r, err
 		}
 		r.End = e
@@ -137,7 +137,7 @@ func rangeQuery(host, queryString, output string, timeout time.Duration, r v1.Ra
 	// if result is the expected type, Write it out in the
 	// desired output format
 	if result, ok := result.(model.Matrix); ok {
-		r := writer.RangeResult{result}
+		r := writer.RangeResult{Matrix: result}
 		if err := writer.WriteRange(&r, output, noHeaders); err != nil {
 			errlog.Println(err)
 		}
@@ -190,16 +190,24 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location (default $HOME/.promql-cli.yaml)")
 	rootCmd.PersistentFlags().String("host", "http://0.0.0.0:9090", "prometheus server url")
-	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
+	if err := viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host")); err != nil {
+		errlog.Fatalln(err)
+	}
 	rootCmd.PersistentFlags().String("step", "1m", "Results step duration (h,m,s e.g. 1m)")
-	viper.BindPFlag("step", rootCmd.PersistentFlags().Lookup("step"))
+	if err := viper.BindPFlag("step", rootCmd.PersistentFlags().Lookup("step")); err != nil {
+		errlog.Fatalln(err)
+	}
 	rootCmd.PersistentFlags().StringVar(&start, "start", "", "Query range start duration (either as a lookback in h,m,s e.g. 1m, or as an ISO 8601 formatted date string). Required for range queries")
 	rootCmd.PersistentFlags().StringVar(&end, "end", "now", "Query range end (either 'now', or an ISO 8601 formatted date string)")
 	rootCmd.PersistentFlags().String("output", "", "Override the default output format (graph for range queries, table for instant queries and metric names). Options: json,csv")
-	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
+	if err := viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output")); err != nil {
+		errlog.Fatalln(err)
+	}
 	rootCmd.PersistentFlags().BoolVar(&noHeaders, "no-headers", false, "Disable table headers for instant queries")
 	rootCmd.PersistentFlags().String("timeout", "10", "The timeout in seconds for all queries")
-	viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout"))
+	if err := viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout")); err != nil {
+		errlog.Fatalln(err)
+	}
 
 }
 

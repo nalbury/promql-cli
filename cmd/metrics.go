@@ -45,7 +45,7 @@ func metricsQuery(host, output string, timeout time.Duration) {
 
 	// if result is the expected type, Write it out in the
 	// desired output format
-	r := writer.MetricsResult{result}
+	r := writer.MetricsResult{LabelValues: result}
 	if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
 		errlog.Println(err)
 	}

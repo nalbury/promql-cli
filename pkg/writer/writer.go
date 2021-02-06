@@ -66,10 +66,10 @@ func (r *RangeResult) Graph(dim util.TermDimensions) (bytes.Buffer, error) {
 
 	for _, m := range r.Matrix {
 		var (
-			data          []float64
-			start         string
-			end           string
-			border_length int
+			data         []float64
+			start        string
+			end          string
+			borderLength int
 		)
 
 		for _, v := range m.Values {
@@ -79,40 +79,50 @@ func (r *RangeResult) Graph(dim util.TermDimensions) (bytes.Buffer, error) {
 		start = m.Values[0].Timestamp.Time().Format(time.Stamp)
 		end = m.Values[(len(m.Values) - 1)].Timestamp.Time().Format(time.Stamp)
 
-		timerange := start + " -> " + end
+		timeRange := start + " -> " + end
 
 		// Generate the graph boxed to our terminal size
 		graph := asciigraph.Plot(data, termHeightOpt, termWidthOpt)
 
 		// Create our header for each graph
 		// # TIME_RANGE: Sep 27 09:08:09 -> Sep 27 09:18:09
-		time_range_header := "# TIME_RANGE: " + timerange
+		timeRangeHeader := "# TIME_RANGE: " + timeRange
 		// # METRIC: {instance="10.202.38.101:6443"}
-		metric_header := "# METRIC: " + m.Metric.String()
+		metricHeader := "# METRIC: " + m.Metric.String()
 		// Truncate the metric header to the term width - 2
 		// This ensures that long metric headers don't overflow onto a new line
-		if len(metric_header) > (dim.Width - 2) {
-			metric_header = metric_header[:(dim.Width - 2)]
+		if len(metricHeader) > (dim.Width - 2) {
+			metricHeader = metricHeader[:(dim.Width - 2)]
 		}
 		// Determine the longest header string and set the border (######) to it's length + 2
 		// Add spacing to the shortest header
-		if len(time_range_header) > len(metric_header) {
-			border_length = len(time_range_header) + 2
-			s := len(time_range_header) - len(metric_header)
-			metric_header = metric_header + strings.Repeat(" ", s)
+		if len(timeRangeHeader) > len(metricHeader) {
+			borderLength = len(timeRangeHeader) + 2
+			s := len(timeRangeHeader) - len(metricHeader)
+			metricHeader = metricHeader + strings.Repeat(" ", s)
 		} else {
-			border_length = len(metric_header) + 2
-			s := len(metric_header) - len(time_range_header)
-			time_range_header = time_range_header + strings.Repeat(" ", s)
+			borderLength = len(metricHeader) + 2
+			s := len(metricHeader) - len(timeRangeHeader)
+			timeRangeHeader = timeRangeHeader + strings.Repeat(" ", s)
 		}
 		// Create the border of '#'
-		border := strings.Repeat("#", border_length)
+		border := strings.Repeat("#", borderLength)
 		// Write out
-		fmt.Fprintf(&buf, "\n%s\n", border)
-		fmt.Fprintf(&buf, "%s #\n", time_range_header)
-		fmt.Fprintf(&buf, "%s #\n", metric_header)
-		fmt.Fprintf(&buf, "%s\n", border)
-		fmt.Fprintf(&buf, "%s\n", graph)
+		if _, err := fmt.Fprintf(&buf, "\n%s\n", border); err != nil {
+			return buf, err
+		}
+		if _, err := fmt.Fprintf(&buf, "%s #\n", timeRangeHeader); err != nil {
+			return buf, err
+		}
+		if _, err := fmt.Fprintf(&buf, "%s #\n", metricHeader); err != nil {
+			return buf, err
+		}
+		if _, err := fmt.Fprintf(&buf, "%s\n", border); err != nil {
+			return buf, err
+		}
+		if _, err := fmt.Fprintf(&buf, "%s\n", graph); err != nil {
+			return buf, err
+		}
 	}
 	return buf, nil
 }
@@ -162,7 +172,9 @@ func (r *RangeResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 			rows = append(rows, row)
 		}
 	}
-	w.WriteAll(rows)
+	if err := w.WriteAll(rows); err != nil {
+		return buf, err
+	}
 	return buf, nil
 }
 
@@ -221,7 +233,9 @@ func (r *InstantResult) Table(noHeaders bool) (bytes.Buffer, error) {
 		titles = append(titles, "VALUE")
 		titles = append(titles, "TIMESTAMP")
 		titleRow := strings.Join(titles, "\t")
-		fmt.Fprintln(w, titleRow)
+		if _, err := fmt.Fprintln(w, titleRow); err != nil {
+			return buf, err
+		}
 	}
 
 	for _, v := range r.Vector {
@@ -232,9 +246,13 @@ func (r *InstantResult) Table(noHeaders bool) (bytes.Buffer, error) {
 		data = append(data, v.Value.String())
 		data = append(data, v.Timestamp.Time().Format(time.RFC3339))
 		row := strings.Join(data, "\t")
-		fmt.Fprintln(w, row)
+		if _, err := fmt.Fprintln(w, row); err != nil {
+			return buf, err
+		}
 	}
-	w.Flush()
+	if err := w.Flush(); err != nil {
+		return buf, err
+	}
 	return buf, nil
 }
 
@@ -249,7 +267,7 @@ func (r *InstantResult) Json() (bytes.Buffer, error) {
 	return buf, nil
 }
 
-// Csv returns the repsonse from an instant query as a csv
+// Csv returns the response from an instant query as a csv
 func (r *InstantResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 	var (
 		buf  bytes.Buffer
@@ -281,7 +299,9 @@ func (r *InstantResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 		row = append(row, v.Timestamp.Time().Format(time.RFC3339))
 		rows = append(rows, row)
 	}
-	w.WriteAll(rows)
+	if err := w.WriteAll(rows); err != nil {
+		return buf, err
+	}
 	return buf, nil
 }
 
@@ -299,13 +319,19 @@ func (r *MetricsResult) Table(noHeaders bool) (bytes.Buffer, error) {
 	w := tabwriter.NewWriter(&buf, 0, 0, padding, ' ', 0)
 	if !noHeaders {
 		titleRow := "METRICS"
-		fmt.Fprintln(w, titleRow)
+		if _, err := fmt.Fprintln(w, titleRow); err != nil {
+			return buf, err
+		}
 	}
 	for _, l := range r.LabelValues {
 		row := string(l)
-		fmt.Fprintln(w, row)
+		if _, err := fmt.Fprintln(w, row); err != nil {
+			return buf, err
+		}
 	}
-	w.Flush()
+	if err := w.Flush(); err != nil {
+		return buf, err
+	}
 	return buf, nil
 }
 
@@ -320,7 +346,7 @@ func (r *MetricsResult) Json() (bytes.Buffer, error) {
 	return buf, nil
 }
 
-// Csv returns the repsonse from a metrics query as a single column csv
+// Csv returns the response from a metrics query as a single column csv
 func (r *MetricsResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 	var (
 		buf  bytes.Buffer
@@ -335,7 +361,9 @@ func (r *MetricsResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 		row := []string{string(l)}
 		rows = append(rows, row)
 	}
-	w.WriteAll(rows)
+	if err := w.WriteAll(rows); err != nil {
+		return buf, err
+	}
 	return buf, nil
 }
 
@@ -357,13 +385,19 @@ func (r *LabelsResult) Table(noHeaders bool) (bytes.Buffer, error) {
 	}
 	if !noHeaders {
 		titleRow := "LABELS"
-		fmt.Fprintln(w, titleRow)
+		if _, err := fmt.Fprintln(w, titleRow); err != nil {
+			return buf, err
+		}
 	}
 	for _, l := range labels {
 		row := string(l)
-		fmt.Fprintln(w, row)
+		if _, err := fmt.Fprintln(w, row); err != nil {
+			return buf, err
+		}
 	}
-	w.Flush()
+	if err := w.Flush(); err != nil {
+		return buf, err
+	}
 	return buf, nil
 }
 
@@ -401,7 +435,9 @@ func (r *LabelsResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 		row := []string{string(l)}
 		rows = append(rows, row)
 	}
-	w.WriteAll(rows)
+	if err := w.WriteAll(rows); err != nil {
+		return buf, err
+	}
 	return buf, nil
 }
 
