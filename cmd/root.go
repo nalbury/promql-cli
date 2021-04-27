@@ -38,6 +38,7 @@ var (
 	cfgFile   string
 	start     string
 	end       string
+	qtime     string
 	noHeaders bool
 )
 
@@ -45,7 +46,7 @@ var (
 var errlog = log.New(os.Stderr, "", 0)
 
 // instantQuery performs an instant query and writes the results to stdout
-func instantQuery(host, queryString, output string, timeout time.Duration) {
+func instantQuery(host, queryString, output string, timeout time.Duration, qtime string) {
 	client, err := promql.CreateClient(host)
 	if err != nil {
 		errlog.Fatalf("Error creating client, %v\n", err)
@@ -54,7 +55,11 @@ func instantQuery(host, queryString, output string, timeout time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	result, warnings, err := client.Query(ctx, queryString, time.Now())
+	s := time.Now()
+	if qtime != "" {
+		s, _ = time.Parse(time.RFC3339, qtime)
+	}
+	result, warnings, err := client.Query(ctx, queryString, s)
 	if err != nil {
 		errlog.Fatalf("Error querying Prometheus, %v\n", err)
 	}
@@ -172,7 +177,7 @@ var rootCmd = &cobra.Command{
 			// Execute our range query
 			rangeQuery(host, query, output, t, r)
 		} else {
-			instantQuery(host, query, output, t)
+			instantQuery(host, query, output, t, qtime)
 		}
 	},
 }
@@ -208,6 +213,7 @@ func init() {
 	if err := viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout")); err != nil {
 		errlog.Fatalln(err)
 	}
+	rootCmd.PersistentFlags().StringVar(&qtime, "qtime", "", "Query instant vector at specific time")
 
 }
 
