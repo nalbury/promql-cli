@@ -2,11 +2,13 @@ package writer
 
 import (
 	"fmt"
-	"github.com/nalbury/promql-cli/pkg/util"
-	"github.com/prometheus/common/model"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/nalbury/promql-cli/pkg/util"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRangeGraph(t *testing.T) {
@@ -105,10 +107,8 @@ func TestJson(t *testing.T) {
 		},
 		{
 			Result: &MetricsResult{
-				model.LabelValues{
-					"my_metric",
-					"my_other_metric",
-				},
+				"my_metric",
+				"my_other_metric",
 			},
 			Expected: "[\"my_metric\",\"my_other_metric\"]",
 		},
@@ -126,6 +126,18 @@ func TestJson(t *testing.T) {
 				},
 			},
 			Expected: "[\"__name__\",\"label\"]",
+		},
+		{
+			Result: &MetaResult{
+				"my_metric": []v1.Metadata{
+					{
+						Type: "counter",
+						Help: "The best metric you've ever recorded",
+						Unit: "",
+					},
+				},
+			},
+			Expected: "{\"my_metric\":[{\"type\":\"counter\",\"help\":\"The best metric you've ever recorded\",\"unit\":\"\"}]}",
 		},
 	}
 	for i, c := range cases {
@@ -186,10 +198,8 @@ func TestCsv(t *testing.T) {
 		},
 		{
 			Result: &MetricsResult{
-				model.LabelValues{
-					"my_metric",
-					"my_other_metric",
-				},
+				"my_metric",
+				"my_other_metric",
 			},
 			Expected: "metrics\nmy_metric\nmy_other_metric\n",
 		},
@@ -207,6 +217,18 @@ func TestCsv(t *testing.T) {
 				},
 			},
 			Expected: "labels\n__name__\nlabel\n",
+		},
+		{
+			Result: &MetaResult{
+				"my_metric": []v1.Metadata{
+					{
+						Type: "counter",
+						Help: "The best metric you've ever recorded",
+						Unit: "",
+					},
+				},
+			},
+			Expected: "metric,type,help,unit\nmy_metric,counter,The best metric you've ever recorded,\n",
 		},
 	}
 	for i, c := range cases {
@@ -241,10 +263,8 @@ func TestTable(t *testing.T) {
 		},
 		{
 			Result: &MetricsResult{
-				model.LabelValues{
-					"my_metric",
-					"my_other_metric",
-				},
+				"my_metric",
+				"my_other_metric",
 			},
 			Expected: "METRICS\nmy_metric\nmy_other_metric\n",
 		},
@@ -262,6 +282,18 @@ func TestTable(t *testing.T) {
 				},
 			},
 			Expected: "LABELS\n__name__\nlabel\n",
+		},
+		{
+			Result: &MetaResult{
+				"my_metric": []v1.Metadata{
+					{
+						Type: "counter",
+						Help: "The best metric you've ever recorded",
+						Unit: "",
+					},
+				},
+			},
+			Expected: "METRIC       TYPE       HELP                                    UNIT\nmy_metric    counter    The best metric you've ever recorded    \n",
 		},
 	}
 	for i, c := range cases {

@@ -22,12 +22,14 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"github.com/guptarohit/asciigraph"
-	"github.com/nalbury/promql-cli/pkg/util"
-	"github.com/prometheus/common/model"
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"github.com/guptarohit/asciigraph"
+	"github.com/nalbury/promql-cli/pkg/util"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 )
 
 // Writer is our base interface for promql writers
@@ -305,12 +307,10 @@ func (r *InstantResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 	return buf, nil
 }
 
-// MetricsResult is the result of our metrics query
+// MetricsResult is the list of metrics names from a metadata query result
 // It satisfies the InstantWriter interface as it's
 // a point in time (e.g. what metrics are currently queryable)
-type MetricsResult struct {
-	model.LabelValues
-}
+type MetricsResult []string
 
 // Table returns the response from a metrics query as a single column table
 func (r *MetricsResult) Table(noHeaders bool) (bytes.Buffer, error) {
@@ -323,7 +323,7 @@ func (r *MetricsResult) Table(noHeaders bool) (bytes.Buffer, error) {
 			return buf, err
 		}
 	}
-	for _, l := range r.LabelValues {
+	for _, l := range *r {
 		row := string(l)
 		if _, err := fmt.Fprintln(w, row); err != nil {
 			return buf, err
@@ -338,7 +338,7 @@ func (r *MetricsResult) Table(noHeaders bool) (bytes.Buffer, error) {
 // Json returns the response from a metrics query as json
 func (r *MetricsResult) Json() (bytes.Buffer, error) {
 	var buf bytes.Buffer
-	o, err := json.Marshal(r.LabelValues)
+	o, err := json.Marshal(r)
 	if err != nil {
 		return buf, err
 	}
@@ -357,7 +357,7 @@ func (r *MetricsResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 		titleRow := []string{"metrics"}
 		rows = append(rows, titleRow)
 	}
-	for _, l := range r.LabelValues {
+	for _, l := range *r {
 		row := []string{string(l)}
 		rows = append(rows, row)
 	}
@@ -436,6 +436,90 @@ func (r *LabelsResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 		rows = append(rows, row)
 	}
 	if err := w.WriteAll(rows); err != nil {
+		return buf, err
+	}
+	return buf, nil
+}
+
+// MetaResult is the result of our metadata query
+// It statisfies the InstantWriter interface
+type MetaResult map[string][]v1.Metadata
+
+// Metrics returns an array of metrics from a metadata query result
+func (r *MetaResult) Metrics() MetricsResult {
+	var metrics MetricsResult = make([]string, 0, len(*r))
+	for k := range *r {
+		metrics = append(metrics, k)
+	}
+	return metrics
+}
+
+// Json returns the result from a metadata query as json
+func (r *MetaResult) Json() (bytes.Buffer, error) {
+	var buf bytes.Buffer
+	j, err := json.Marshal(r)
+	if err != nil {
+		return buf, err
+	}
+	buf.Write(j)
+	return buf, nil
+}
+
+// Csv returns the result from a metadata query as csv
+func (r *MetaResult) Csv(noHeaders bool) (bytes.Buffer, error) {
+	var (
+		buf  bytes.Buffer
+		rows [][]string
+	)
+	w := csv.NewWriter(&buf)
+	if !noHeaders {
+		titleRow := []string{"metric", "type", "help", "unit"}
+		rows = append(rows, titleRow)
+	}
+
+	for metric, meta := range *r {
+		for _, m := range meta {
+			data := make([]string, 0, 4)
+			data = append(data, metric)
+			data = append(data, string(m.Type))
+			data = append(data, m.Help)
+			data = append(data, m.Unit)
+			rows = append(rows, data)
+		}
+	}
+
+	if err := w.WriteAll(rows); err != nil {
+		return buf, err
+	}
+	return buf, nil
+}
+
+// Table returns the result from a metadata query as tab separated table
+func (r *MetaResult) Table(noHeaders bool) (bytes.Buffer, error) {
+	var buf bytes.Buffer
+	const padding = 4
+	w := tabwriter.NewWriter(&buf, 0, 0, padding, ' ', 0)
+	if !noHeaders {
+		titles := []string{"METRIC", "TYPE", "HELP", "UNIT"}
+		titleRow := strings.Join(titles, "\t")
+		if _, err := fmt.Fprintln(w, titleRow); err != nil {
+			return buf, err
+		}
+	}
+	for metric, meta := range *r {
+		for _, m := range meta {
+			data := make([]string, 0, 4)
+			data = append(data, metric)
+			data = append(data, string(m.Type))
+			data = append(data, m.Help)
+			data = append(data, m.Unit)
+			row := strings.Join(data, "\t")
+			if _, err := fmt.Fprintln(w, row); err != nil {
+				return buf, err
+			}
+		}
+	}
+	if err := w.Flush(); err != nil {
 		return buf, err
 	}
 	return buf, nil

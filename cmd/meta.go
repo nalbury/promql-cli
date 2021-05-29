@@ -19,14 +19,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	"github.com/nalbury/promql-cli/pkg/promql"
 	"github.com/nalbury/promql-cli/pkg/writer"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-func metricsQuery(host, output string, timeout time.Duration) {
+func metaQuery(host, query, output string, timeout time.Duration) {
 	client, err := promql.CreateClient(host)
 	if err != nil {
 		errlog.Fatalf("Error creating client, %v\n", err)
@@ -36,36 +35,37 @@ func metricsQuery(host, output string, timeout time.Duration) {
 	defer cancel()
 
 	var r writer.MetaResult
-	r, err = client.Metadata(ctx, "", "")
+	r, err = client.Metadata(ctx, query, "")
 	if err != nil {
 		errlog.Fatalf("Error querying Prometheus, %v\n", err)
 	}
 
-	// Returns an array of metrics from the metadata response.
-	var m writer.MetricsResult = r.Metrics()
 	// if result is the expected type, Write it out in the
 	// desired output format
-	if err := writer.WriteInstant(&m, output, noHeaders); err != nil {
+	if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
 		errlog.Println(err)
 	}
-
 }
 
-// metricsCmd represents the metrics command
-var metricsCmd = &cobra.Command{
-	Use:   "metrics",
-	Short: "Get a list of all prometheus metric names",
-	Long:  `Get a list of all prometheus metric names`,
+// metaCmd represents the meta command
+var metaCmd = &cobra.Command{
+	Use:   "meta",
+	Short: "Get the type and help metadata for a metric",
+	Long:  "Get the type and help metadata for a metric",
 	Run: func(cmd *cobra.Command, args []string) {
+		query := ""
+		if len(args) > 0 {
+			query = args[0]
+		}
 		host := viper.GetString("host")
 		output := viper.GetString("output")
 		timeout := viper.GetInt("timeout")
 		// Convert our timeout flag into a time.Duration
 		t := time.Duration(int64(timeout)) * time.Second
-		metricsQuery(host, output, t)
+		metaQuery(host, query, output, t)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(metricsCmd)
+	rootCmd.AddCommand(metaCmd)
 }
