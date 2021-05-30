@@ -1,5 +1,5 @@
 /*
-Copyright © 2020 NAME HERE nickalbury@gmail.com
+Copyright © 2020 Nick Albury nickalbury@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,8 +43,7 @@ func metricsQuery(host, output string, timeout time.Duration) {
 
 	// Returns an array of metrics from the metadata response.
 	var m writer.MetricsResult = r.Metrics()
-	// if result is the expected type, Write it out in the
-	// desired output format
+	// Write result
 	if err := writer.WriteInstant(&m, output, noHeaders); err != nil {
 		errlog.Println(err)
 	}

@@ -1,5 +1,5 @@
 /*
-Copyright © 2020 NAME HERE nickalbury@gmail.com
+Copyright © 2020 Nick Albury nickalbury@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,8 +40,7 @@ func metaQuery(host, query, output string, timeout time.Duration) {
 		errlog.Fatalf("Error querying Prometheus, %v\n", err)
 	}
 
-	// if result is the expected type, Write it out in the
-	// desired output format
+	// Write result
 	if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
 		errlog.Println(err)
 	}
