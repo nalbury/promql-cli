@@ -9,6 +9,7 @@ Usage:
 Available Commands:
   help        Help about any command
   labels      Get a list of all labels for a given query
+  meta        Get the type and help metadata for a metric
   metrics     Get a list of all prometheus metric names
 
 Flags:
@@ -21,7 +22,7 @@ Flags:
       --start string     Query range start duration (either as a lookback in h,m,s e.g. 1m, or as an ISO 8601 formatted date string). Required for range queries
       --step string      Results step duration (h,m,s e.g. 1m) (default "1m")
       --timeout string   The timeout in seconds for all queries (default "10")
-      --version          version for promql
+  -v, --version          version for promql
 
 Use "promql [command] --help" for more information about a command.
 
@@ -141,6 +142,14 @@ go_memstats_alloc_bytes_total
 go_memstats_buck_hash_sys_bytes
 go_memstats_frees_total
 
+```
+
+You can also view the metadata information for a metric (or all metrics) with the `promql meta` command.
+
+```
+➜  ~ promql meta go_goroutines
+METRIC           TYPE     HELP                                          UNIT
+go_goroutines    gauge    Number of goroutines that currently exist.
 ```
 
 #### Labels
