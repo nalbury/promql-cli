@@ -19,16 +19,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
-	"github.com/prometheus/common/model"
-
 	"github.com/nalbury/promql-cli/pkg/promql"
 	"github.com/nalbury/promql-cli/pkg/writer"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-func labelsQuery(host, query, output string, timeout time.Duration) {
+func metaQuery(host, query, output string, timeout time.Duration) {
 	client, err := promql.CreateClient(host)
 	if err != nil {
 		errlog.Fatalf("Error creating client, %v\n", err)
@@ -37,44 +34,37 @@ func labelsQuery(host, query, output string, timeout time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	result, warnings, err := client.Query(ctx, query, time.Now())
+	var r writer.MetaResult
+	r, err = client.Metadata(ctx, query, "")
 	if err != nil {
 		errlog.Fatalf("Error querying Prometheus, %v\n", err)
 	}
-	if len(warnings) > 0 {
-		errlog.Printf("Warnings: %v\n", warnings)
-	}
 
-	// if result is the expected type, Write it out in the
-	// desired output format
-	if result, ok := result.(model.Vector); ok {
-		r := writer.LabelsResult{Vector: result}
-		if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
-			errlog.Println(err)
-		}
-	} else {
-		errlog.Println("Did not receive an instant vector")
+	// Write result
+	if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
+		errlog.Println(err)
 	}
 }
 
-// labelsCmd represents the labels command
-var labelsCmd = &cobra.Command{
-	Use:   "labels [query_string]",
-	Short: "Get a list of all labels for a given query",
-	Long:  `Get a list of all labels for a given query`,
-	Args:  cobra.ExactArgs(1),
+// metaCmd represents the meta command
+var metaCmd = &cobra.Command{
+	Use:   "meta",
+	Short: "Get the type and help metadata for a metric",
+	Long:  "Get the type and help metadata for a metric",
 	Run: func(cmd *cobra.Command, args []string) {
-		query := args[0]
+		query := ""
+		if len(args) > 0 {
+			query = args[0]
+		}
 		host := viper.GetString("host")
 		output := viper.GetString("output")
 		timeout := viper.GetInt("timeout")
-
 		// Convert our timeout flag into a time.Duration
 		t := time.Duration(int64(timeout)) * time.Second
-		labelsQuery(host, query, output, t)
+		metaQuery(host, query, output, t)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(labelsCmd)
+	rootCmd.AddCommand(metaCmd)
 }

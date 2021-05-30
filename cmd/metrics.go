@@ -1,5 +1,5 @@
 /*
-Copyright © 2020 NAME HERE nickalbury@gmail.com
+Copyright © 2020 Nick Albury nickalbury@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,20 +35,19 @@ func metricsQuery(host, output string, timeout time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	result, warnings, err := client.LabelValues(ctx, "__name__")
+	var r writer.MetaResult
+	r, err = client.Metadata(ctx, "", "")
 	if err != nil {
 		errlog.Fatalf("Error querying Prometheus, %v\n", err)
 	}
-	if len(warnings) > 0 {
-		errlog.Printf("Warnings: %v\n", warnings)
-	}
 
-	// if result is the expected type, Write it out in the
-	// desired output format
-	r := writer.MetricsResult{LabelValues: result}
-	if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
+	// Returns an array of metrics from the metadata response.
+	var m writer.MetricsResult = r.Metrics()
+	// Write result
+	if err := writer.WriteInstant(&m, output, noHeaders); err != nil {
 		errlog.Println(err)
 	}
+
 }
 
 // metricsCmd represents the metrics command
