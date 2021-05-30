@@ -442,7 +442,7 @@ func (r *LabelsResult) Csv(noHeaders bool) (bytes.Buffer, error) {
 }
 
 // MetaResult is the result of our metadata query
-// It statisfies the InstantWriter interface
+// It satisfies the InstantWriter interface
 type MetaResult map[string][]v1.Metadata
 
 // Metrics returns an array of metrics from a metadata query result
