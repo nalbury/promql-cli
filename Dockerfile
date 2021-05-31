@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y make
 
 ADD ./ /promql-cli/
 ARG TARGETARCH
-RUN OS=linux ARCH=${TARGETARCH} make build 
+RUN OS=linux ARCH=${TARGETARCH} INSTALL_PATH=/promql-cli/build/bin/ make install 
 
 FROM debian:buster-slim AS promql-cli 
-COPY --from=build /promql-cli/build/bin/linux/${TARGETARCH}/promql /bin/promql
+COPY --from=build /promql-cli/build/bin/promql /bin/promql
 ENTRYPOINT [ "/bin/promql" ]
