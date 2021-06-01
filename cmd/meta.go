@@ -22,11 +22,10 @@ import (
 	"github.com/nalbury/promql-cli/pkg/promql"
 	"github.com/nalbury/promql-cli/pkg/writer"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func metaQuery(host, query, output string, timeout time.Duration) {
-	client, err := promql.CreateClient(host)
+	client, err := promql.CreateClientWithAuth(host, authCfg)
 	if err != nil {
 		errlog.Fatalf("Error creating client, %v\n", err)
 	}
@@ -56,12 +55,7 @@ var metaCmd = &cobra.Command{
 		if len(args) > 0 {
 			query = args[0]
 		}
-		host := viper.GetString("host")
-		output := viper.GetString("output")
-		timeout := viper.GetInt("timeout")
-		// Convert our timeout flag into a time.Duration
-		t := time.Duration(int64(timeout)) * time.Second
-		metaQuery(host, query, output, t)
+		metaQuery(host, query, output, timeoutDuration)
 	},
 }
 

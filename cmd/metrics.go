@@ -20,14 +20,13 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/nalbury/promql-cli/pkg/promql"
 	"github.com/nalbury/promql-cli/pkg/writer"
 )
 
 func metricsQuery(host, output string, timeout time.Duration) {
-	client, err := promql.CreateClient(host)
+	client, err := promql.CreateClientWithAuth(host, authCfg)
 	if err != nil {
 		errlog.Fatalf("Error creating client, %v\n", err)
 	}
@@ -56,12 +55,7 @@ var metricsCmd = &cobra.Command{
 	Short: "Get a list of all prometheus metric names",
 	Long:  `Get a list of all prometheus metric names`,
 	Run: func(cmd *cobra.Command, args []string) {
-		host := viper.GetString("host")
-		output := viper.GetString("output")
-		timeout := viper.GetInt("timeout")
-		// Convert our timeout flag into a time.Duration
-		t := time.Duration(int64(timeout)) * time.Second
-		metricsQuery(host, output, t)
+		metricsQuery(host, output, timeoutDuration)
 	},
 }
 

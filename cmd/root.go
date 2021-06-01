@@ -18,15 +18,18 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/spf13/cobra"
 	"log"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 
 	"github.com/nalbury/promql-cli/pkg/promql"
@@ -35,10 +38,16 @@ import (
 
 // cmd line args
 var (
-	cfgFile   string
-	start     string
-	end       string
-	noHeaders bool
+	host            string
+	step            string
+	output          string
+	timeout         int
+	timeoutDuration time.Duration
+	cfgFile         string
+	start           string
+	end             string
+	noHeaders       bool
+	authCfg         config.Authorization
 )
 
 // global error logger
@@ -46,7 +55,7 @@ var errlog = log.New(os.Stderr, "", 0)
 
 // instantQuery performs an instant query and writes the results to stdout
 func instantQuery(host, queryString, output string, timeout time.Duration) {
-	client, err := promql.CreateClient(host)
+	client, err := promql.CreateClientWithAuth(host, authCfg)
 	if err != nil {
 		errlog.Fatalf("Error creating client, %v\n", err)
 	}
@@ -115,7 +124,7 @@ func getRange(step, start, end string) (r v1.Range, err error) {
 // rangeQuery performs a range query and writes the results to stdout
 func rangeQuery(host, queryString, output string, timeout time.Duration, r v1.Range) {
 	// Create client
-	client, err := promql.CreateClient(host)
+	client, err := promql.CreateClientWithAuth(host, authCfg)
 	if err != nil {
 		errlog.Fatalf("Error creating client, %v\n", err)
 	}
@@ -153,15 +162,21 @@ var rootCmd = &cobra.Command{
 	Short:   "Query prometheus from the command line",
 	Long:    `Query prometheus from the command line for quick analysis.`,
 	Args:    cobra.ExactArgs(1),
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		authCfg.Type = viper.GetString("auth-type")
+		authCfg.Credentials = config.Secret(viper.GetString("auth-credentials"))
+		authCfg.CredentialsFile = viper.GetString("auth-credentials-file")
+
+		host = viper.GetString("host")
+		step = viper.GetString("step")
+		output = viper.GetString("output")
+		timeout = viper.GetInt("timeout")
+		// Convert our timeout flag into a time.Duration
+		timeoutDuration = time.Duration(int64(timeout)) * time.Second
+
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
-		host := viper.GetString("host")
-		step := viper.GetString("step")
-		output := viper.GetString("output")
-		timeout := viper.GetInt("timeout")
-
-		// Convert our timeout flag into a time.Duration
-		t := time.Duration(int64(timeout)) * time.Second
 		// If we have a start time for the query, assume we're doing a range query
 		if start != "" {
 			// Parse the time range from the cmd line/config file options
@@ -170,9 +185,9 @@ var rootCmd = &cobra.Command{
 				errlog.Fatalln(err)
 			}
 			// Execute our range query
-			rangeQuery(host, query, output, t, r)
+			rangeQuery(host, query, output, timeoutDuration, r)
 		} else {
-			instantQuery(host, query, output, t)
+			instantQuery(host, query, output, timeoutDuration)
 		}
 	},
 }
@@ -193,22 +208,33 @@ func init() {
 	if err := viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host")); err != nil {
 		errlog.Fatalln(err)
 	}
-	rootCmd.PersistentFlags().String("step", "1m", "Results step duration (h,m,s e.g. 1m)")
+	rootCmd.PersistentFlags().String("step", "1m", "results step duration (h,m,s e.g. 1m)")
 	if err := viper.BindPFlag("step", rootCmd.PersistentFlags().Lookup("step")); err != nil {
 		errlog.Fatalln(err)
 	}
-	rootCmd.PersistentFlags().StringVar(&start, "start", "", "Query range start duration (either as a lookback in h,m,s e.g. 1m, or as an ISO 8601 formatted date string). Required for range queries")
-	rootCmd.PersistentFlags().StringVar(&end, "end", "now", "Query range end (either 'now', or an ISO 8601 formatted date string)")
-	rootCmd.PersistentFlags().String("output", "", "Override the default output format (graph for range queries, table for instant queries and metric names). Options: json,csv")
+	rootCmd.PersistentFlags().StringVar(&start, "start", "", "query range start duration (either as a lookback in h,m,s e.g. 1m, or as an ISO 8601 formatted date string). Required for range queries")
+	rootCmd.PersistentFlags().StringVar(&end, "end", "now", "query range end (either 'now', or an ISO 8601 formatted date string)")
+	rootCmd.PersistentFlags().String("output", "", "override the default output format (graph for range queries, table for instant queries and metric names). Options: json,csv")
 	if err := viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output")); err != nil {
 		errlog.Fatalln(err)
 	}
-	rootCmd.PersistentFlags().BoolVar(&noHeaders, "no-headers", false, "Disable table headers for instant queries")
-	rootCmd.PersistentFlags().String("timeout", "10", "The timeout in seconds for all queries")
+	rootCmd.PersistentFlags().BoolVar(&noHeaders, "no-headers", false, "disable table headers for instant queries")
+	rootCmd.PersistentFlags().String("timeout", "10", "the timeout in seconds for all queries")
 	if err := viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout")); err != nil {
 		errlog.Fatalln(err)
 	}
-
+	rootCmd.PersistentFlags().String("auth-type", "", "optional auth scheme for http requests to prometheus e.g. \"Basic\" or \"Bearer\"")
+	if err := viper.BindPFlag("auth-type", rootCmd.PersistentFlags().Lookup("auth-type")); err != nil {
+		errlog.Fatalln(err)
+	}
+	rootCmd.PersistentFlags().String("auth-credentials", "", "optional auth credentials string for http requests to prometheus")
+	if err := viper.BindPFlag("auth-credentials", rootCmd.PersistentFlags().Lookup("auth-credentials")); err != nil {
+		errlog.Fatalln(err)
+	}
+	rootCmd.PersistentFlags().String("auth-credentials-file", "", "optional path to an auth credentials file for http requests to prometheus")
+	if err := viper.BindPFlag("auth-credentials-file", rootCmd.PersistentFlags().Lookup("auth-credentials-file")); err != nil {
+		errlog.Fatalln(err)
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -227,7 +253,8 @@ func initConfig() {
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".promql-cli")
 	}
-
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.SetEnvPrefix("promql")
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.

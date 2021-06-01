@@ -13,16 +13,19 @@ Available Commands:
   metrics     Get a list of all prometheus metric names
 
 Flags:
-      --config string    config file location (default $HOME/.promql-cli.yaml)
-      --end string       Query range end (either 'now', or an ISO 8601 formatted date string) (default "now")
-  -h, --help             help for promql
-      --host string      prometheus server url (default "http://0.0.0.0:9090")
-      --no-headers       Disable table headers for instant queries
-      --output string    Override the default output format (graph for range queries, table for instant queries and metric names). Options: json,csv
-      --start string     Query range start duration (either as a lookback in h,m,s e.g. 1m, or as an ISO 8601 formatted date string). Required for range queries
-      --step string      Results step duration (h,m,s e.g. 1m) (default "1m")
-      --timeout string   The timeout in seconds for all queries (default "10")
-  -v, --version          version for promql
+      --auth-credentials string        optional auth credentials string for http requests to prometheus
+      --auth-credentials-file string   optional path to an auth credentials file for http requests to prometheus
+      --auth-type string               optional auth scheme for http requests to prometheus e.g. "Basic" or "Bearer"
+      --config string                  config file location (default $HOME/.promql-cli.yaml)
+      --end string                     query range end (either 'now', or an ISO 8601 formatted date string) (default "now")
+  -h, --help                           help for promql
+      --host string                    prometheus server url (default "http://0.0.0.0:9090")
+      --no-headers                     disable table headers for instant queries
+      --output string                  override the default output format (graph for range queries, table for instant queries and metric names). Options: json,csv
+      --start string                   query range start duration (either as a lookback in h,m,s e.g. 1m, or as an ISO 8601 formatted date string). Required for range queries
+      --step string                    results step duration (h,m,s e.g. 1m) (default "1m")
+      --timeout string                 the timeout in seconds for all queries (default "10")
+  -v, --version                        version for promql
 
 Use "promql [command] --help" for more information about a command.
 
@@ -178,4 +181,61 @@ subresource
 verb
 version
 
+```
+
+### HTTP Auth
+
+If your prometheus server has an auth proxy in front of it, you an configure HTTP Authorization headers via cmdline flags, env vars, or in your config file. The credentials themselves can either be provided as a string, or as a file containing the credentials regardless of the method you choose for configuration. 
+
+Command line flags:
+
+```
+➜  ~ echo -n "myuser:themostsecurepasswordinthemultiversewhywouldyoueventrytohackitdontwasteyourtime" |base64 > ~/.promql_token
+➜  ~ promql --auth-type Basic --auth-credentials-file ~/.promql_token metrics |head
+METRICS
+prometheus_http_request_duration_seconds
+prometheus_remote_storage_string_interner_zero_reference_releases_total
+node_sockstat_TCP6_inuse
+prometheus_sd_discovered_targets
+alertmanager_nflog_query_errors_total
+container_fs_writes_bytes_total
+kubernetes_build_info
+prometheus_tsdb_wal_corruptions_total
+node_network_device_id
+```
+
+Environment variables:
+
+```
+➜  ~ export PROMQL_AUTH_TYPE="Basic"
+➜  ~ export PROMQL_AUTH_CREDENTIALS="$(echo -n 'myuser:themostsecurepasswordinthemultiversewhywouldyoueventrytohackitdontwasteyourtime' |base64)"
+➜  ~ promql metrics |head
+METRICS
+prometheus_http_request_duration_seconds
+prometheus_remote_storage_string_interner_zero_reference_releases_total
+node_sockstat_TCP6_inuse
+prometheus_sd_discovered_targets
+alertmanager_nflog_query_errors_total
+container_fs_writes_bytes_total
+kubernetes_build_info
+prometheus_tsdb_wal_corruptions_total
+node_network_device_id
+```
+
+Config file:
+
+```
+echo "auth-type: Basic" >> ~/.promql-cli.yaml
+echo "auth-credentials: $(echo -n 'myuser:themostsecurepasswordinthemultiversewhywouldyoueventrytohackitdontwasteyourtime' |base64)" >> ~/.promql-cli.yaml
+➜  ~ promql metrics |head
+METRICS
+prometheus_http_request_duration_seconds
+prometheus_remote_storage_string_interner_zero_reference_releases_total
+node_sockstat_TCP6_inuse
+prometheus_sd_discovered_targets
+alertmanager_nflog_query_errors_total
+container_fs_writes_bytes_total
+kubernetes_build_info
+prometheus_tsdb_wal_corruptions_total
+node_network_device_id
 ```
