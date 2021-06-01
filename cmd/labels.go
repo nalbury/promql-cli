@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/prometheus/common/model"
 
@@ -29,7 +28,7 @@ import (
 )
 
 func labelsQuery(host, query, output string, timeout time.Duration) {
-	client, err := promql.CreateClient(host)
+	client, err := promql.CreateClientWithAuth(host, authCfg)
 	if err != nil {
 		errlog.Fatalf("Error creating client, %v\n", err)
 	}
@@ -65,13 +64,7 @@ var labelsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
-		host := viper.GetString("host")
-		output := viper.GetString("output")
-		timeout := viper.GetInt("timeout")
-
-		// Convert our timeout flag into a time.Duration
-		t := time.Duration(int64(timeout)) * time.Second
-		labelsQuery(host, query, output, t)
+		labelsQuery(host, query, output, timeoutDuration)
 	},
 }
 
