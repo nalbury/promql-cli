@@ -18,20 +18,21 @@ limitations under the License.
 package promql
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/config"
-)
-
-// Client is our prometheus v1 API interface
+	"github.com/prometheus/common/model"
+) // Client is our prometheus v1 API interface
 type Client interface {
 	v1.API
 }
 
 // CreateClient creates a Client interface for the provided hostname
-func CreateClient(host string) (Client, error) {
+func CreateClient(host string) (v1.API, error) {
 	a, err := api.NewClient(api.Config{
 		Address: host,
 	})
@@ -42,7 +43,7 @@ func CreateClient(host string) (Client, error) {
 }
 
 // CreateClientWithAuth creates a Client interface witht the provided hostname and auth config
-func CreateClientWithAuth(host string, authCfg config.Authorization) (Client, error) {
+func CreateClientWithAuth(host string, authCfg config.Authorization) (v1.API, error) {
 	cfg := api.Config{
 		Address: host,
 	}
@@ -63,4 +64,97 @@ func CreateClientWithAuth(host string, authCfg config.Authorization) (Client, er
 		return nil, err
 	}
 	return v1.NewAPI(a), nil
+}
+
+// Cfg conatins the final configuration params parsed from a combo of flags, config file values, and env vars.
+type PromQL struct {
+	Host            string
+	Step            string
+	Output          string
+	TimeoutDuration time.Duration
+	CfgFile         string
+	Time            time.Time
+	Start           string
+	End             string
+	NoHeaders       bool
+	Auth            config.Authorization
+	Client          v1.API
+}
+
+// InstantQuery performs an instant query and returns the result
+func (p *PromQL) InstantQuery(queryString string) (model.Vector, v1.Warnings, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), p.TimeoutDuration)
+	defer cancel()
+
+	result, warnings, err := p.Client.Query(ctx, queryString, time.Now())
+	if err != nil {
+		return nil, warnings, fmt.Errorf("error querying prometheus: %v", err)
+	}
+
+	if result, ok := result.(model.Vector); ok {
+		return result, warnings, nil
+	} else {
+		return nil, warnings, fmt.Errorf("did not receive an instant vector result")
+	}
+}
+
+// getRange creates a prometheus range from the provided start, end, and step options
+func (p *PromQL) getRange() (r v1.Range, err error) {
+	// At minimum we need a start time so we attempt to parse that first
+	if s, err := time.Parse(time.RFC3339, p.Start); err == nil {
+		r.Start = s
+	} else if l, err := time.ParseDuration(p.Start); err == nil {
+		r.Start = time.Now().Add(-l)
+	} else {
+		err = fmt.Errorf("unable to parse range start time, %v", err)
+		return r, err
+	}
+
+	// Set up defaults for the range end and step values
+	r.End = time.Now()
+	r.Step = time.Minute
+
+	// If the user provided a step value, parse it as a time.Duration and override the default
+	if p.Step != "" {
+		r.Step, err = time.ParseDuration(p.Step)
+		if err != nil {
+			err = fmt.Errorf("unable to parse step duration, %v", err)
+			return r, err
+		}
+	}
+
+	// If the user provided an end value, parse it to a time struct and override the default
+	if p.End != "now" {
+		e, err := time.Parse(time.RFC3339, p.End)
+		if err != nil {
+			err = fmt.Errorf("unable to parse range end time, %v", err)
+			return r, err
+		}
+		r.End = e
+	}
+
+	return r, err
+}
+
+// rangeQuery performs a range query and writes the results to stdout
+func (p *PromQL) RangeQuery(queryString string) (model.Matrix, v1.Warnings, error) {
+	// create context with a timeout,
+	ctx, cancel := context.WithTimeout(context.Background(), p.TimeoutDuration)
+	defer cancel()
+
+	r, err := p.getRange()
+	if err != nil {
+		return nil, nil, err
+	}
+	// execute query
+	result, warnings, err := p.Client.QueryRange(ctx, queryString, r)
+	if err != nil {
+		return nil, warnings, err
+	}
+
+	if result, ok := result.(model.Matrix); ok {
+		return result, warnings, err
+	} else {
+		return nil, warnings, fmt.Errorf("did not receive a range result")
+	}
 }
