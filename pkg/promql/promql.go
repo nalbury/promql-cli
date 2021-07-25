@@ -158,3 +158,34 @@ func (p *PromQL) RangeQuery(queryString string) (model.Matrix, v1.Warnings, erro
 		return nil, warnings, fmt.Errorf("did not receive a range result")
 	}
 }
+
+// LabelsQuery runs a labels query and returns the result
+func (p *PromQL) LabelsQuery(query string) (model.Vector, v1.Warnings, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), p.TimeoutDuration)
+	defer cancel()
+
+	result, warnings, err := p.Client.Query(ctx, query, time.Now())
+	if err != nil {
+		return nil, warnings, err
+	}
+
+	// if result is the expected type, Write it out in the
+	// desired output format
+	if result, ok := result.(model.Vector); ok {
+		return result, warnings, err
+	} else {
+		return nil, warnings, fmt.Errorf("did not recieve an instant vector")
+	}
+}
+
+// MetaQuery returns prometheus metrics metadata. Used for our metrics and meta commands
+func (p *PromQL) MetaQuery(query string) (map[string][]v1.Metadata, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), p.TimeoutDuration)
+	defer cancel()
+
+	result, err := p.Client.Metadata(ctx, query, "")
+	if err != nil {
+		return map[string][]v1.Metadata{}, fmt.Errorf("Error querying metadata endpoint: %v", err)
+	}
+	return result, nil
+}

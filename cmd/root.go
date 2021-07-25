@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 
@@ -37,7 +36,8 @@ var errlog = log.New(os.Stderr, "", 0)
 
 // cmd line args
 var (
-	pql promql.PromQL
+	pql   promql.PromQL
+	query string
 	// This is placeholder for the initial flag value. We ultimately parse it into the TimeoutDuration paramater of our config
 	timeout int
 )
@@ -66,9 +66,14 @@ var rootCmd = &cobra.Command{
 			errlog.Fatalln(err)
 		}
 		pql.Client = cl
+
+    // Set query string if present
+    // Downstream consumption of the query variable should handle any validation they need
+    if len(args) > 0 {
+      query = args[0]
+    }
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		query := args[0]
 		// If we have a start time for the query, assume we're doing a range query
 		if pql.Start != "" {
 			result, warnings, err := pql.RangeQuery(query)

@@ -18,5 +18,5 @@ package main
 import "github.com/nalbury/promql-cli/cmd"
 
 func main() {
-  cmd.Execute()
+	cmd.Execute()
 }
