@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/mitchellh/go-homedir"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/prometheus/common/config"
@@ -40,6 +40,8 @@ var (
 	query string
 	// This is placeholder for the initial flag value. We ultimately parse it into the TimeoutDuration paramater of our config
 	timeout int
+	// timeStr is a placeholder for the inital "time" flag value. We parse it to a time.Time for use in our queries
+	timeStr string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -60,6 +62,15 @@ var rootCmd = &cobra.Command{
 		// Convert our timeout flag into a time.Duration
 		timeout = viper.GetInt("timeout")
 		pql.TimeoutDuration = time.Duration(int64(timeout)) * time.Second
+		// Parse the timeStr from our --time flag if it was provided
+		pql.Time = time.Now()
+		if timeStr != "now" {
+			t, err := time.Parse(time.RFC3339, timeStr)
+			if err != nil {
+				errlog.Fatalln(err)
+			}
+			pql.Time = t
+		}
 		// Create and set client interface
 		cl, err := promql.CreateClientWithAuth(pql.Host, pql.Auth)
 		if err != nil {
@@ -67,11 +78,11 @@ var rootCmd = &cobra.Command{
 		}
 		pql.Client = cl
 
-    // Set query string if present
-    // Downstream consumption of the query variable should handle any validation they need
-    if len(args) > 0 {
-      query = args[0]
-    }
+		// Set query string if present
+		// Downstream consumption of the query variable should handle any validation they need
+		if len(args) > 0 {
+			query = args[0]
+		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// If we have a start time for the query, assume we're doing a range query
@@ -127,6 +138,7 @@ func init() {
 	}
 	rootCmd.PersistentFlags().StringVar(&pql.Start, "start", "", "query range start duration (either as a lookback in h,m,s e.g. 1m, or as an ISO 8601 formatted date string). Required for range queries")
 	rootCmd.PersistentFlags().StringVar(&pql.End, "end", "now", "query range end (either 'now', or an ISO 8601 formatted date string)")
+	rootCmd.PersistentFlags().StringVar(&timeStr, "time", "now", "time for instant queries (either 'now', or an ISO 8601 formatted date string)")
 	rootCmd.PersistentFlags().String("output", "", "override the default output format (graph for range queries, table for instant queries and metric names). Options: json,csv")
 	if err := viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output")); err != nil {
 		errlog.Fatalln(err)

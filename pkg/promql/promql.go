@@ -86,7 +86,7 @@ func (p *PromQL) InstantQuery(queryString string) (model.Vector, v1.Warnings, er
 	ctx, cancel := context.WithTimeout(context.Background(), p.TimeoutDuration)
 	defer cancel()
 
-	result, warnings, err := p.Client.Query(ctx, queryString, time.Now())
+	result, warnings, err := p.Client.Query(ctx, queryString, p.Time)
 	if err != nil {
 		return nil, warnings, fmt.Errorf("error querying prometheus: %v", err)
 	}
