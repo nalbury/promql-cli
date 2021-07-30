@@ -16,45 +16,9 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
-	"time"
-
-	"github.com/spf13/cobra"
-
-	"github.com/prometheus/common/model"
-
-	"github.com/nalbury/promql-cli/pkg/promql"
 	"github.com/nalbury/promql-cli/pkg/writer"
+	"github.com/spf13/cobra"
 )
-
-func labelsQuery(host, query, output string, timeout time.Duration) {
-	client, err := promql.CreateClientWithAuth(host, authCfg)
-	if err != nil {
-		errlog.Fatalf("Error creating client, %v\n", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	result, warnings, err := client.Query(ctx, query, time.Now())
-	if err != nil {
-		errlog.Fatalf("Error querying Prometheus, %v\n", err)
-	}
-	if len(warnings) > 0 {
-		errlog.Printf("Warnings: %v\n", warnings)
-	}
-
-	// if result is the expected type, Write it out in the
-	// desired output format
-	if result, ok := result.(model.Vector); ok {
-		r := writer.LabelsResult{Vector: result}
-		if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
-			errlog.Println(err)
-		}
-	} else {
-		errlog.Println("Did not receive an instant vector")
-	}
-}
 
 // labelsCmd represents the labels command
 var labelsCmd = &cobra.Command{
@@ -63,8 +27,18 @@ var labelsCmd = &cobra.Command{
 	Long:  `Get a list of all labels for a given query`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		query := args[0]
-		labelsQuery(host, query, output, timeoutDuration)
+		result, warnings, err := pql.LabelsQuery(query)
+		if len(warnings) > 0 {
+			errlog.Printf("Warnings: %v\n", warnings)
+		}
+		if err != nil {
+			errlog.Fatalln(err)
+		}
+		// Write out result
+		r := writer.LabelsResult{Vector: result}
+		if err := writer.WriteInstant(&r, pql.Output, pql.NoHeaders); err != nil {
+			errlog.Fatalln(err)
+		}
 	},
 }
 

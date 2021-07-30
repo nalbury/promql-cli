@@ -16,34 +16,9 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
-	"time"
-
-	"github.com/nalbury/promql-cli/pkg/promql"
 	"github.com/nalbury/promql-cli/pkg/writer"
 	"github.com/spf13/cobra"
 )
-
-func metaQuery(host, query, output string, timeout time.Duration) {
-	client, err := promql.CreateClientWithAuth(host, authCfg)
-	if err != nil {
-		errlog.Fatalf("Error creating client, %v\n", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	var r writer.MetaResult
-	r, err = client.Metadata(ctx, query, "")
-	if err != nil {
-		errlog.Fatalf("Error querying Prometheus, %v\n", err)
-	}
-
-	// Write result
-	if err := writer.WriteInstant(&r, output, noHeaders); err != nil {
-		errlog.Println(err)
-	}
-}
 
 // metaCmd represents the meta command
 var metaCmd = &cobra.Command{
@@ -51,11 +26,15 @@ var metaCmd = &cobra.Command{
 	Short: "Get the type and help metadata for a metric",
 	Long:  "Get the type and help metadata for a metric",
 	Run: func(cmd *cobra.Command, args []string) {
-		query := ""
-		if len(args) > 0 {
-			query = args[0]
+		var r writer.MetaResult
+		result, err := pql.MetaQuery(query)
+		if err != nil {
+			errlog.Fatalln(err)
 		}
-		metaQuery(host, query, output, timeoutDuration)
+		r = result
+		if err := writer.WriteInstant(&r, pql.Output, pql.NoHeaders); err != nil {
+			errlog.Fatalln(err)
+		}
 	},
 }
 
