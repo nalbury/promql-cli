@@ -43,9 +43,16 @@ func CreateClient(host string) (v1.API, error) {
 }
 
 // CreateClientWithAuth creates a Client interface witht the provided hostname and auth config
-func CreateClientWithAuth(host string, authCfg config.Authorization) (v1.API, error) {
+func CreateClientWithAuth(host string, authCfg config.Authorization, tlsCfg config.TLSConfig) (v1.API, error) {
 	cfg := api.Config{
 		Address: host,
+	}
+	cmmnConfig := config.HTTPClientConfig{
+		TLSConfig: tlsCfg,
+	}
+	rt, err := config.NewRoundTripperFromConfig(cmmnConfig, "promql", false, false)
+	if err != nil {
+		return nil, err
 	}
 	if authCfg != (config.Authorization{}) {
 		switch {
@@ -54,11 +61,12 @@ func CreateClientWithAuth(host string, authCfg config.Authorization) (v1.API, er
 		case authCfg.Credentials != "" && authCfg.CredentialsFile != "":
 			return nil, fmt.Errorf("please specify either auth credentials or an auth credential file, not both")
 		case authCfg.Credentials != "":
-			cfg.RoundTripper = config.NewAuthorizationCredentialsRoundTripper(authCfg.Type, config.Secret(authCfg.Credentials), api.DefaultRoundTripper)
+			cfg.RoundTripper = config.NewAuthorizationCredentialsRoundTripper(authCfg.Type, config.Secret(authCfg.Credentials), rt)
 		default:
-			cfg.RoundTripper = config.NewAuthorizationCredentialsFileRoundTripper(authCfg.Type, authCfg.CredentialsFile, api.DefaultRoundTripper)
+			cfg.RoundTripper = config.NewAuthorizationCredentialsFileRoundTripper(authCfg.Type, authCfg.CredentialsFile, rt)
 		}
 	}
+	cfg.RoundTripper = rt
 	a, err := api.NewClient(cfg)
 	if err != nil {
 		return nil, err
@@ -79,6 +87,7 @@ type PromQL struct {
 	NoHeaders       bool
 	Auth            config.Authorization
 	Client          v1.API
+	TLSConfig       config.TLSConfig
 }
 
 // InstantQuery performs an instant query and returns the result
