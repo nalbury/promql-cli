@@ -8,10 +8,10 @@ GOARCH = $(strip $(ARCH))
 V = $(strip $(VERSION))
 P = $(strip $(INSTALL_PATH))
 
-BUILD_PATH = ./build/bin/$(GOOS)/$(GOARCH)
+BUILD_PATH = ./build/bin
 ARTIFACT_PATH = ./build/artifacts
 
-export GO_BUILD=GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BUILD_PATH)/promql ./
+export GO_BUILD=GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BUILD_PATH)/promql_$(GOOS)_$(GOARCH) ./
 export TAR=tar -czvf $(ARTIFACT_PATH)/promql-$(V)-$(GOOS)-$(GOARCH).tar.gz -C $(BUILD_PATH) promql
 
 build: setup ## Build promql binary
@@ -30,7 +30,6 @@ build-all: ## Build binaries for linux and macOS
 
 build-artifact: setup ## Build binary and create release artifact
 		$(GO_BUILD)
-		$(TAR)
 
 release: ## Build binaries and create release artifacts for both linux and macOS
 		OS="darwin" ARCH="amd64" make build-artifact

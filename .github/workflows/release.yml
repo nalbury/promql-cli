@@ -1,28 +1,38 @@
 name: Release
 on:
-  push:
-    tags:
-    - 'v*'
+  workflow_dispatch:
+    inputs:   
+      release_tag:
+        description: 'release tag'
+        required: true
+      release_title:
+        description: 'release title'
+        required: false
+      release_notes:
+        description: 'release notes'     
+        required: false
+        default: ''
 jobs:
   release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.x
+        go-version: 1.17.x
     - name: Checkout code
       uses: actions/checkout@v2
+      
     - name: Create release artifacts
-      run: VERSION=$(awk -F '/' '{print $3}'<<< "$GITHUB_REF") make release
-    - name: Create release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        VERSION=$(awk -F '/' '{print $3}'<<< "$GITHUB_REF")
-        for f in ./build/artifacts/*
-        do
-          [ -f "$f" ] && assets+=(-a "$f")
-        done
-        hub release create -m "Release ${VERSION}" \
-          "${assets[@]}" "${VERSION}"
+        OS="linux" ARCH="amd64" make build
+        OS="linux" ARCH="arm64" make build
+
+    - name: create release along with artifact
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "./build/bin/*"
+        body: "${{ github.event.inputs.release_notes }}"
+        token: ${{ secrets.GITHUB_TOKEN }}
+        name: "${{ github.event.inputs.release_title }}"
+        tag: ${{ github.event.inputs.release_tag }}     
