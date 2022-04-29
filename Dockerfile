@@ -11,11 +11,12 @@ ARG TARGETARCH
 RUN OS=linux ARCH=${TARGETARCH} INSTALL_PATH=/promql-cli/build/bin/ make install
 
 FROM debian:bullseye-slim AS promql-cli
-COPY --from=build /promql-cli/build/bin/promql /bin/promql
 
 RUN apt-get update \
   && apt-get install --no-install-recommends -y ca-certificates \
   && rm -rf /var/lib/apt/lists/* /var/cache/*
+
+COPY --from=build /promql-cli/build/bin/promql /bin/promql
 
 RUN useradd -u 1001 -m promql
 USER promql

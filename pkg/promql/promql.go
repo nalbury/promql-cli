@@ -20,6 +20,8 @@ package promql
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
@@ -47,13 +49,20 @@ func CreateClientWithAuth(host string, authCfg config.Authorization, tlsCfg conf
 	cfg := api.Config{
 		Address: host,
 	}
-	cmmnConfig := config.HTTPClientConfig{
-		TLSConfig: tlsCfg,
-	}
-	rt, err := config.NewRoundTripperFromConfig(cmmnConfig, "promql", false, false)
+	tc, err := config.NewTLSConfig(&tlsCfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error parsing TLS config, %s", err)
 	}
+	var rt http.RoundTripper = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:     tc,
+	}
+
 	if authCfg != (config.Authorization{}) {
 		switch {
 		case authCfg.Type == "":
@@ -61,9 +70,9 @@ func CreateClientWithAuth(host string, authCfg config.Authorization, tlsCfg conf
 		case authCfg.Credentials != "" && authCfg.CredentialsFile != "":
 			return nil, fmt.Errorf("please specify either auth credentials or an auth credential file, not both")
 		case authCfg.Credentials != "":
-			cfg.RoundTripper = config.NewAuthorizationCredentialsRoundTripper(authCfg.Type, config.Secret(authCfg.Credentials), rt)
+			rt = config.NewAuthorizationCredentialsRoundTripper(authCfg.Type, config.Secret(authCfg.Credentials), rt)
 		default:
-			cfg.RoundTripper = config.NewAuthorizationCredentialsFileRoundTripper(authCfg.Type, authCfg.CredentialsFile, rt)
+			rt = config.NewAuthorizationCredentialsFileRoundTripper(authCfg.Type, authCfg.CredentialsFile, rt)
 		}
 	}
 	cfg.RoundTripper = rt
