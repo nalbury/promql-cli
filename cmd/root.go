@@ -56,10 +56,10 @@ var rootCmd = &cobra.Command{
 		pql.Auth.Credentials = config.Secret(viper.GetString("auth-credentials"))
 		pql.Auth.CredentialsFile = viper.GetString("auth-credentials-file")
 		pql.TLSConfig = config.TLSConfig{
-			CAFile: viper.GetString("tls_config.ca_cert_file"),
-			CertFile: viper.GetString("tls_config.cert_file"),
-			KeyFile: viper.GetString("tls_config.key_file"),
-			ServerName: viper.GetString("tls_config.servername"),
+			CAFile:             viper.GetString("tls_config.ca_cert_file"),
+			CertFile:           viper.GetString("tls_config.cert_file"),
+			KeyFile:            viper.GetString("tls_config.key_file"),
+			ServerName:         viper.GetString("tls_config.servername"),
 			InsecureSkipVerify: viper.GetBool("tls_config.insecure_skip_verify"),
 		}
 
@@ -167,23 +167,26 @@ func init() {
 	if err := viper.BindPFlag("auth-credentials-file", rootCmd.PersistentFlags().Lookup("auth-credentials-file")); err != nil {
 		errlog.Fatalln(err)
 	}
-	rootCmd.PersistentFlags().String("tls_config.ca_cert_file","","CA cert Path for TLS config")
-	if err := viper.BindPFlag("tls_config.ca_cert_file",rootCmd.PersistentFlags().Lookup("tls_config.ca_cert_file")); err != nil {
+	rootCmd.PersistentFlags().String("tls_config.ca_cert_file", "", "CA cert Path for TLS config")
+	if err := viper.BindPFlag("tls_config.ca_cert_file", rootCmd.PersistentFlags().Lookup("tls_config.ca_cert_file")); err != nil {
 		errlog.Fatalln(err)
 	}
-	rootCmd.PersistentFlags().String("tls_config.cert_file","","client cert Path for TLS config")
-	if err := viper.BindPFlag("tls_config.cert_file",rootCmd.PersistentFlags().Lookup("tls_config.cert_file")); err != nil {
+	rootCmd.PersistentFlags().String("tls_config.cert_file", "", "client cert Path for TLS config")
+	if err := viper.BindPFlag("tls_config.cert_file", rootCmd.PersistentFlags().Lookup("tls_config.cert_file")); err != nil {
 		errlog.Fatalln(err)
 	}
-	rootCmd.PersistentFlags().String("tls_config.key_file","","client key for TLS config")
-	if err := viper.BindPFlag("tls_config.key_file",rootCmd.PersistentFlags().Lookup("tls_config.key_file")); err != nil {
+	rootCmd.PersistentFlags().String("tls_config.key_file", "", "client key for TLS config")
+	if err := viper.BindPFlag("tls_config.key_file", rootCmd.PersistentFlags().Lookup("tls_config.key_file")); err != nil {
 		errlog.Fatalln(err)
 	}
-	rootCmd.PersistentFlags().String("tls_config.servername","","server name for TLS config")
-	if err := viper.BindPFlag("tls_config.servername",rootCmd.PersistentFlags().Lookup("tls_config.servername")); err != nil {
+	rootCmd.PersistentFlags().String("tls_config.servername", "", "server name for TLS config")
+	if err := viper.BindPFlag("tls_config.servername", rootCmd.PersistentFlags().Lookup("tls_config.servername")); err != nil {
 		errlog.Fatalln(err)
 	}
-	rootCmd.PersistentFlags().Bool("tls_config.insecure_skip_verify",false,"disable the TLS verification of server certificates.")
+	rootCmd.PersistentFlags().Bool("tls_config.insecure_skip_verify", false, "disable the TLS verification of server certificates.")
+	if err := viper.BindPFlag("tls_config.insecure_skip_verify", rootCmd.PersistentFlags().Lookup("tls_config.insecure_skip_verify")); err != nil {
+		errlog.Fatalln(err)
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.
