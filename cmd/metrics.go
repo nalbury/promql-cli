@@ -22,12 +22,15 @@ import (
 
 // metricsCmd represents the metrics command
 var metricsCmd = &cobra.Command{
-	Use:   "metrics",
+	Use:   "metrics [query_string]",
 	Short: "Get a list of all prometheus metric names",
 	Long:  `Get a list of all prometheus metric names`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var r writer.MetaResult
-		result, err := pql.MetaQuery("")
+		var r writer.SeriesResult
+		result, warnings, err := pql.SeriesQuery(query)
+		if len(warnings) > 0 {
+			errlog.Printf("Warnings: %v\n", warnings)
+		}
 		if err != nil {
 			errlog.Fatalln(err)
 		}

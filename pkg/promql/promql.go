@@ -116,22 +116,37 @@ func (p *PromQL) InstantQuery(queryString string) (model.Vector, v1.Warnings, er
 	}
 }
 
+func parseRangeStart(s string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t, nil
+	} else if d, err := time.ParseDuration(s); err == nil {
+		return time.Now().Add(-d), nil
+	} else {
+		err = fmt.Errorf("unable to parse range start time, %v", err)
+		return time.Time{}, nil
+	}
+}
+
+func parseRangeEnd(e string) (time.Time, error) {
+	if e == "now" {
+		return time.Now(), nil
+	}
+	t, err := time.Parse(time.RFC3339, e)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error parsing range end time, %v", err)
+	}
+	return t, nil
+}
+
 // getRange creates a prometheus range from the provided start, end, and step options
 func (p *PromQL) getRange() (r v1.Range, err error) {
 	// At minimum we need a start time so we attempt to parse that first
-	if s, err := time.Parse(time.RFC3339, p.Start); err == nil {
-		r.Start = s
-	} else if l, err := time.ParseDuration(p.Start); err == nil {
-		r.Start = time.Now().Add(-l)
-	} else {
-		err = fmt.Errorf("unable to parse range start time, %v", err)
+	r.Start, err = parseRangeStart(p.Start)
+	if err != nil {
 		return r, err
 	}
-
-	// Set up defaults for the range end and step values
-	r.End = time.Now()
+	// Set up defaults for the step value
 	r.Step = time.Minute
-
 	// If the user provided a step value, parse it as a time.Duration and override the default
 	if p.Step != "" {
 		r.Step, err = time.ParseDuration(p.Step)
@@ -142,13 +157,9 @@ func (p *PromQL) getRange() (r v1.Range, err error) {
 	}
 
 	// If the user provided an end value, parse it to a time struct and override the default
-	if p.End != "now" {
-		e, err := time.Parse(time.RFC3339, p.End)
-		if err != nil {
-			err = fmt.Errorf("unable to parse range end time, %v", err)
-			return r, err
-		}
-		r.End = e
+	r.End, err = parseRangeEnd(p.End)
+	if err != nil {
+		return r, err
 	}
 
 	return r, err
@@ -206,4 +217,33 @@ func (p *PromQL) MetaQuery(query string) (map[string][]v1.Metadata, error) {
 		return map[string][]v1.Metadata{}, fmt.Errorf("Error querying metadata endpoint: %v", err)
 	}
 	return result, nil
+}
+
+// SeriesQuery returns prometheus series data
+func (p *PromQL) SeriesQuery(query string) ([]model.LabelSet, v1.Warnings, error) {
+	// Set defaults based on time flag
+	s := p.Time.Add(-15 * time.Second)
+	e := p.Time
+	// Parse range start and end if provided and override the defaults
+	if p.Start != "" {
+		var err error
+		s, err = parseRangeStart(p.Start)
+		if err != nil {
+			return []model.LabelSet{}, v1.Warnings{}, err
+		}
+	}
+	if p.End != "" {
+		var err error
+		e, err = parseRangeEnd(p.End)
+		if err != nil {
+			return []model.LabelSet{}, v1.Warnings{}, err
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), p.TimeoutDuration)
+	defer cancel()
+	result, warnings, err := p.Client.Series(ctx, []string{query}, s, e)
+	if err != nil {
+		return []model.LabelSet{}, warnings, fmt.Errorf("error querying series endpoint: %v", err)
+	}
+	return result, warnings, err
 }
