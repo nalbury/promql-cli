@@ -525,6 +525,18 @@ func (r *MetaResult) Table(noHeaders bool) (bytes.Buffer, error) {
 	return buf, nil
 }
 
+// SeriesResult currently doesn't write anything itself but helps create other result types like metrics from the series api
+type SeriesResult []model.LabelSet
+
+// Metrics creates a MetricsResult from a SeriesResult
+func (r *SeriesResult) Metrics() MetricsResult {
+	var metrics MetricsResult = make([]string, 0, len(*r))
+	for _, l := range *r {
+		metrics = append(metrics, string(l["__name__"]))
+	}
+	return metrics
+}
+
 // WriteInstant writes out the results of the query to an
 // output buffer and prints it to stdout
 func WriteInstant(i InstantWriter, format string, noHeaders bool) error {
