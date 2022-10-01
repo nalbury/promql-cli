@@ -239,11 +239,29 @@ func (p *PromQL) SeriesQuery(query string) ([]model.LabelSet, v1.Warnings, error
 			return []model.LabelSet{}, v1.Warnings{}, err
 		}
 	}
+
+	// Default to prometheus if not job_name is provided
+	if 0 == len(query) {
+		query = "prometheus"
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), p.TimeoutDuration)
 	defer cancel()
-	result, warnings, err := p.Client.Series(ctx, []string{query}, s, e)
+	result, warnings, err := p.Client.Series(ctx, []string{fmt.Sprintf("{job=\"%s\"}", query)}, s, e)
 	if err != nil {
 		return []model.LabelSet{}, warnings, fmt.Errorf("error querying series endpoint: %v", err)
 	}
-	return result, warnings, err
+
+	// Return distinct metric names
+	metricNames := make(map[model.LabelValue]bool)
+	uniqueMetrics := make([]model.LabelSet, 0, len(result))
+
+	for _, v := range result {
+		n := v["__name__"]
+		if _, found := metricNames[n]; !found {
+			metricNames[n] = true
+			uniqueMetrics = append(uniqueMetrics, v)
+		}
+	}
+
+	return uniqueMetrics, warnings, err
 }
