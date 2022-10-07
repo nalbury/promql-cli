@@ -265,3 +265,19 @@ func (p *PromQL) SeriesQuery(query string) ([]model.LabelSet, v1.Warnings, error
 
 	return uniqueMetrics, warnings, err
 }
+
+func (p *PromQL) Targets(query string) ([]model.LabelSet, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), p.TimeoutDuration)
+	defer cancel()
+
+	targets, err := p.Client.Targets(ctx)
+	if nil != err {
+		return []model.LabelSet{}, fmt.Errorf("error querying targets: %v", err)
+	}
+	jobs := make([]model.LabelSet, 0, len(targets.Active))
+	for _, at := range targets.Active {
+		jobs = append(jobs, map[model.LabelName]model.LabelValue{ "__name__": at.Labels["job"] })
+	}
+
+	return jobs, nil
+}
