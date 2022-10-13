@@ -37,6 +37,8 @@ release: ## Build binaries and create release artifacts for both linux and macOS
 		OS="darwin" ARCH="arm64" make build-artifact
 		OS="linux" ARCH="amd64" make build-artifact
 		OS="linux" ARCH="arm64" make build-artifact
+		OS="windows" ARCH="amd64" make build-artifact
+		OS="windows" ARCH="arm64" make build-artifact
 
 install: ## Build binary and install to the specified install path (default /usr/local/bin)
 		$(GO_BUILD)

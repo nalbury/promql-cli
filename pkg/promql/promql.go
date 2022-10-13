@@ -274,9 +274,16 @@ func (p *PromQL) Targets(query string) ([]model.LabelSet, error) {
 	if nil != err {
 		return []model.LabelSet{}, fmt.Errorf("error querying targets: %v", err)
 	}
+
+
 	jobs := make([]model.LabelSet, 0, len(targets.Active))
+	jobNames := make(map[model.LabelValue]bool)
 	for _, at := range targets.Active {
-		jobs = append(jobs, map[model.LabelName]model.LabelValue{ "__name__": at.Labels["job"] })
+		n := at.Labels["job"]
+		if _, found := jobNames[n]; !found {
+			jobNames[n] = true
+			jobs = append(jobs, map[model.LabelName]model.LabelValue{ "__name__": at.Labels["job"] })
+		}
 	}
 
 	return jobs, nil
