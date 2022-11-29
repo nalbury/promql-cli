@@ -27,6 +27,7 @@ import (
 	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 ) // Client is our prometheus v1 API interface
+
 type Client interface {
 	v1.API
 }
@@ -50,7 +51,7 @@ func CreateClientWithAuth(host string, authCfg config.Authorization, tlsCfg conf
 	cmmnConfig := config.HTTPClientConfig{
 		TLSConfig: tlsCfg,
 	}
-	rt, err := config.NewRoundTripperFromConfig(cmmnConfig, "promql", false, false)
+	rt, err := config.NewRoundTripperFromConfig(cmmnConfig, "promql")
 	if err != nil {
 		return nil, err
 	}
