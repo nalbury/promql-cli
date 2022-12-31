@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  promql:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    volumes:
+      - "./:/promql-cli/"
+    command: sleep infinity
+    network_mode: service:prometheus
+  prometheus:
+    image: prom/prometheus:latest
