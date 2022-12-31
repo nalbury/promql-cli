@@ -1,4 +1,3 @@
 *.swp
 build/*
 .idea/
-.devcontainer/
