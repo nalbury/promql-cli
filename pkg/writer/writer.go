@@ -533,8 +533,8 @@ func (r *SeriesResult) Metrics() MetricsResult {
 	u := make(map[string]struct{})
 	var m MetricsResult
 	for _, l := range *r {
-		if _, ok := u[string(l["__name__"])]; !ok {
-			name := string(l["__name__"])
+		name := string(l["__name__"])
+		if _, ok := u[name]; !ok {
 			u[name] = struct{}{}
 			m = append(m, name)
 		}
