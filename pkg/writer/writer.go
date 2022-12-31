@@ -530,11 +530,16 @@ type SeriesResult []model.LabelSet
 
 // Metrics creates a MetricsResult from a SeriesResult
 func (r *SeriesResult) Metrics() MetricsResult {
-	var metrics MetricsResult = make([]string, 0, len(*r))
+	u := make(map[string]struct{})
+	var m MetricsResult
 	for _, l := range *r {
-		metrics = append(metrics, string(l["__name__"]))
+		name := string(l["__name__"])
+		if _, ok := u[name]; !ok {
+			u[name] = struct{}{}
+			m = append(m, name)
+		}
 	}
-	return metrics
+	return m
 }
 
 // WriteInstant writes out the results of the query to an
