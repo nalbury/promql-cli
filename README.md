@@ -147,6 +147,21 @@ go_memstats_frees_total
 
 ```
 
+A query can be provided to narrow the list of metrics returned, for example to return all metrics that have the string `gc` in their name you can run:
+
+```
+➜  ~ promql metrics '{__name__=~".+gc.+"}'
+METRICS
+go_gc_duration_seconds
+go_gc_duration_seconds_count
+go_gc_duration_seconds_sum
+go_memstats_gc_sys_bytes
+go_memstats_last_gc_time_seconds
+go_memstats_next_gc_bytes
+prometheus_tsdb_head_gc_duration_seconds_count
+prometheus_tsdb_head_gc_duration_seconds_sum
+```
+
 You can also view the metadata information for a metric (or all metrics) with the `promql meta` command.
 
 ```
