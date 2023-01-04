@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -88,7 +89,16 @@ var rootCmd = &cobra.Command{
 		// Set query string if present
 		// Downstream consumption of the query variable should handle any validation they need
 		if len(args) > 0 {
-			query = args[0]
+			// Query is in a file
+			if strings.HasPrefix(args[0], "@")  {
+				buff, err := ioutil.ReadFile(args[0][1:])
+				if nil != err {
+					errlog.Fatalln(err)
+				}
+				query = string(buff)
+			} else {
+				query = args[0]
+			}
 		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {

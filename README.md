@@ -11,6 +11,7 @@ Available Commands:
   labels      Get a list of all labels for a given query
   meta        Get the type and help metadata for a metric
   metrics     Get a list of all prometheus metric names
+  targets     Get a list of configured targets *new*
 
 Flags:
       --auth-credentials string        optional auth credentials string for http requests to prometheus
