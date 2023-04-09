@@ -22,6 +22,8 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -59,12 +61,26 @@ type RangeResult struct {
 	model.Matrix
 }
 
+// findMaxAbsFloat64 returns the maximum absolute value in a slice of float64
+func findMaxAbsFloat64(values []float64) (float64, bool) {
+	if len(values) == 0 {
+		return 0, false
+	}
+
+	max := values[0]
+	for _, number := range values {
+		if math.Abs(number) > max {
+			max = number
+		}
+	}
+	return max, true
+}
+
 // Graph returns an ascii graph using https://github.com/guptarohit/asciigraph
 func (r *RangeResult) Graph(dim util.TermDimensions) (bytes.Buffer, error) {
 	var buf bytes.Buffer
 
 	termHeightOpt := asciigraph.Height(dim.Height / 5)
-	termWidthOpt := asciigraph.Width(dim.Width - 8)
 
 	for _, m := range r.Matrix {
 		var (
@@ -77,6 +93,20 @@ func (r *RangeResult) Graph(dim util.TermDimensions) (bytes.Buffer, error) {
 		for _, v := range m.Values {
 			data = append(data, float64(v.Value))
 		}
+
+		// Find max absolute value to determine width of the left column of the graph
+		//
+		// We fall back to 0 if there are no data points
+		maxAbs, found := findMaxAbsFloat64(data)
+		if !found {
+			maxAbs = 0
+		}
+
+		// Determine width of the left column of the graph
+		maxValueLen := len(strconv.Itoa(int(math.Ceil(maxAbs))))
+
+		// "4" is a magic number to compensate for the asciigraph decorations
+		termWidthOpt := asciigraph.Width(dim.Width - 4 - maxValueLen)
 
 		start = m.Values[0].Timestamp.Time().Format(time.Stamp)
 		end = m.Values[(len(m.Values) - 1)].Timestamp.Time().Format(time.Stamp)
