@@ -1,6 +1,6 @@
 module github.com/nalbury/promql-cli
 
-go 1.19
+go 1.20
 
 require (
 	github.com/guptarohit/asciigraph v0.4.2-0.20191006150553-f9506970428c
