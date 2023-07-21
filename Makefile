@@ -11,7 +11,7 @@ P = $(strip $(INSTALL_PATH))
 BUILD_PATH = ./build/bin
 ARTIFACT_PATH = ./build/artifacts
 
-export GO_BUILD=GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BUILD_PATH)/promql_$(GOOS)_$(GOARCH) ./
+export GO_BUILD=GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -o $(BUILD_PATH)/promql_$(GOOS)_$(GOARCH) ./
 export TAR=tar -czvf $(ARTIFACT_PATH)/promql-$(V)-$(GOOS)-$(GOARCH).tar.gz -C $(BUILD_PATH) promql
 
 build: setup ## Build promql binary
