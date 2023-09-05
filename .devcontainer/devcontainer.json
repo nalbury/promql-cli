@@ -1,0 +1,31 @@
+{
+	"name": "PromQL CLI Dev",
+	"dockerComposeFile": "../docker-compose.dev.yml",
+	"service": "promql",
+	"workspaceFolder": "/promql-cli/",
+	"remoteUser": "promql",
+	"features": {
+		"ghcr.io/devcontainers/features/common-utils:2": {
+			"configureZshAsDefaultShell": true,
+			"username": "promql"
+		},
+		"ghcr.io/devcontainers/features/git:1": {},
+		"ghcr.io/eitsupi/devcontainer-features/jq-likes:1": {},
+		"ghcr.io/devcontainers/features/go:1": {},
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"golang.go",
+				"ms-azuretools.vscode-docker",
+				"Gruntfuggly.todo-tree"
+			],
+			"settings": {
+				"go.toolsManagement.autoUpdate": true,
+				"go.useLanguageServer": true,
+				"go.gopath": "/go"
+			}
+		}
+	}
+}
